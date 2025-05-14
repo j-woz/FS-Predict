@@ -1,6 +1,12 @@
 
 class Model:
 
+    """
+    RNG = Random Number Generator Model
+    Returns random predictions
+    Serves as an example for future Model implementations
+    """
+
     def log(self, m):
         print("RNG Model: " + str(m))
 

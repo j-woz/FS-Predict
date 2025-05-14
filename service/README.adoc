@@ -8,8 +8,8 @@ The idea is that the service is always running, and the user can insert new data
 Run the server:
 
 ----
-$ python server.py -s SOCKET_FILE
-$ python server.py -s /tmp/woz/xfer-tmp/xfer-sock.392.s
+$ python server.py -s SOCKET_FILE [-m MODEL]
+$ python server.py -s /tmp/woz/xfer-tmp/xfer-sock.392.s -m rng
 ----
 
 Run the client:
@@ -55,3 +55,7 @@ Output predictions for the given input workload.
 * The predictor code should be packaged behind the interface in `predictor.py`.
 * We may want to support multiple predictors, selectable from the command line.
 * The predictor may be pre-trained on a large dataset.
+
+== Models
+
+Models are loaded by the name provided to the server command line via `-m` .  An example model is provided in module `rng` .
