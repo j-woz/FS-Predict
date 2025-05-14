@@ -49,7 +49,7 @@ Cleanly shutdown the server.
 `insert`::
 Insert observed input data into the service.  The output file is ignored.
 
-`predict` WIP::
+`predict`::
 Output predictions for the given input workload.
 
 == Prediction
