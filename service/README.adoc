@@ -1,0 +1,57 @@
+
+= Prediction service
+
+The idea is that the service is always running, and the user can insert new data or query it for a prediction.
+
+== Usage
+
+Run the server:
+
+----
+$ python server.py -s SOCKET_FILE
+$ python server.py -s /tmp/woz/xfer-tmp/xfer-sock.392.s
+----
+
+Run the client:
+
+----
+$ python client.py -s SOCKET_FILE METHOD [-i INPUT_FILE] [-o OUTPUT_FILE]
+$ python client.py -s /tmp/woz/xfer-tmp/xfer-sock.392.s insert -i data.csv
+----
+
+The socket file provided with `-s FILE` must agree between the two programs, but can be any file location.  If a socket file is not provided, the server will automatically create one and report it based on the value of these environment variables in this order:
+
+. `XFER_TMP`
+. `TMPDIR`
+. `TMP`
+. Else `/tmp/$USER`
+
+Kill the server with Ctrl-C.  In some cases (bugs), the server may hang and you will have to kill it from another shell.
+
+== Client command line
+
+`-s FILE`::
+The socket file
+
+`-i FILE`::
+The input file
+
+`-o FILE`::
+The output file
+
+== Methods
+
+`quit` WIP::
+Cleanly shutdown the server.
+
+`insert`::
+Insert observed input data into the service.  The output file is ignored.
+
+`predict` WIP::
+Output predictions for the given input workload.
+
+== Prediction
+
+* The predictor code should be packaged behind the interface in `predictor.py`.
+* We may want to support multiple predictors, selectable from the command line.
+* The predictor may be pre-trained on a large dataset.
