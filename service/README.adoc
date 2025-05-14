@@ -55,7 +55,7 @@ Output predictions for the given input workload.
 == Prediction
 
 * The predictor code should be packaged behind the interface in `predictor.py`.
-* We may want to support multiple predictors, selectable from the command line.
+* We support multiple predictors, selectable from the command line.
 * The predictor may be pre-trained on a large dataset.
 
 == Models
