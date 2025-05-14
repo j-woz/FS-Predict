@@ -13,7 +13,7 @@ class Predictor:
         """
         If module import fails, sets self.model==None
         """
-        self.log("initializing")
+        # self.log("initializing")
         # Select model implementation
         import importlib
         try:
@@ -26,11 +26,10 @@ class Predictor:
 
     def insert(self, data):
         """ Insert small recent measurements """
-        self.log("insert: " + data)
-        # Hand off to real math model
-        # self.model.insert(data)
+        b = self.model.insert(data)
+        return b
 
     def predict(self, data):
-        """ Fill in DURATIONs for given workload """
-        self.log("predict: " + data)
-        return "prediction"
+        """ Fill in DURATION for given workload """
+        b, value = self.model.predict(data)
+        return (b, value)

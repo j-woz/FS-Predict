@@ -9,14 +9,16 @@ Run the server:
 
 ----
 $ python server.py -s SOCKET_FILE [-m MODEL]
-$ python server.py -s /tmp/woz/xfer-tmp/xfer-sock.392.s -m rng
+$ python server.py -s /tmp/woz/sock.s -m rng
 ----
 
 Run the client:
 
 ----
 $ python client.py -s SOCKET_FILE METHOD [-i INPUT_FILE] [-o OUTPUT_FILE]
-$ python client.py -s /tmp/woz/xfer-tmp/xfer-sock.392.s insert -i data.csv
+$ python client.py -s /tmp/woz/sock.s insert  -i log.csv
+$ python client.py -s /tmp/woz/sock.s predict -i workload.csv -o predicted.csv
+$ python client.py -s /tmp/woz/sock.s quit
 ----
 
 The socket file provided with `-s FILE` must agree between the two programs, but can be any file location.  If a socket file is not provided, the server will automatically create one and report it based on the value of these environment variables in this order:
@@ -59,3 +61,11 @@ Output predictions for the given input workload.
 == Models
 
 Models are loaded by the name provided to the server command line via `-m` .  An example model is provided in module `rng` .
+
+== Examples
+
+See:
+
+----
+$ ./insert-predict.sh
+----

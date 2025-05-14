@@ -100,9 +100,9 @@ def get_tmp():
 def make_sock_dir(sockfile):
     directory = os.path.dirname(sockfile)
     try:
-        os.makedirs(directory)
+        os.makedirs(directory, exist_ok=True)
     except Exception as e:
-        abort(str(e))
+        abort("failed making socket directory: " + str(e))
         return False
     return True
 
@@ -125,7 +125,7 @@ def run_server(args):
     handlers = setup_handlers()
     sock.settimeout(0.1)
     while not cancelled:
-        msg("listen")
+        # msg("listen")
         sock.listen(1)
         msg("accept")
         connected = False
@@ -162,8 +162,9 @@ def setup_handlers():
     signal.signal(signal.SIGHUP, signal_handler)
 
     # Methods:
-    handlers = { "insert" : do_insert,
-                 "quit"   : do_quit
+    handlers = { "insert"  : do_insert,
+                 "predict" : do_predict,
+                 "quit"    : do_quit
                 }
     return handlers
 
@@ -178,12 +179,12 @@ def signal_handler(unused_sig, unused_frame):
 
 
 def handle(handlers, conn, tokens):
-    msg("handle")
+    # msg("handle")
     if len(tokens) != 1:
         b = send(conn, "ERROR")
         if not b: return
     method = tokens[0]
-    msg("method: " + method)
+    # msg("method: " + method)
     if method not in handlers:
         warn("unknown method: '%s'" % method)
         conn.send(("ERROR: unknown method: " + method).encode())
@@ -203,12 +204,35 @@ def do_insert(conn, tokens):
             msg("connection dropped")
             return
         # msg("insert: line: " + line.strip())
-        predictor.insert(line.strip())
         if line == "EOF\n":
             msg("insert: EOF")
             break
+        b = predictor.insert(line.strip())
+        if not b: break
         time.sleep(0.1)
     msg("do_insert(): done.")
+
+
+def do_predict(conn, tokens):
+    global cancelled
+    msg("do_predict()...")
+    send(conn, "OK\n")
+    done = False
+    L = []
+    while not done and not cancelled:
+        line = recv_line(conn, L)
+        if line is None:
+            msg("connection dropped")
+            return
+        # msg("predict: line: " + line.strip())
+        if line == "EOF":
+            msg("predict: EOF")
+            break
+        b, value = predictor.predict(line.strip())
+        if not b: break
+        send(conn, str(value) + "\n")
+        time.sleep(0.1)
+    msg("do_predict(): done.")
 
 
 def do_quit(conn, tokens):

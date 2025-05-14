@@ -1,3 +1,4 @@
 __pycache__
 flake8.cfg
 pylintrc.toml
+predicted.csv
