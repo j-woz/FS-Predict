@@ -65,7 +65,8 @@ def make_socket(args):
         sockfile = tmp + "/xfer-sock." + str(index) + ".s"
     else:
         sockfile = args.socket
-    reset_sock(sockfile)
+    if not make_sock_dir(sockfile): return None
+    if not reset_sock(sockfile):    return None
     msg("opening socket: " + sockfile)
     global sock
     sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
@@ -96,10 +97,25 @@ def get_tmp():
     return tmp
 
 
+def make_sock_dir(sockfile):
+    directory = os.path.dirname(sockfile)
+    try:
+        os.makedirs(directory)
+    except Exception as e:
+        abort(str(e))
+        return False
+    return True
+
+
 def reset_sock(sockfile):
     if os.path.exists(sockfile):
         msg("resetting: " + sockfile)
-        os.remove(sockfile)
+        try:
+            os.remove(sockfile)
+        except Exception as e:
+            abort(str(e))
+            return False
+    return True
 
 
 def run_server(args):
