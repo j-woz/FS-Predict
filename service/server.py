@@ -146,7 +146,9 @@ def setup_handlers():
     signal.signal(signal.SIGHUP, signal_handler)
 
     # Methods:
-    handlers = { "insert" : do_insert }
+    handlers = { "insert" : do_insert,
+                 "quit"   : do_quit
+                }
     return handlers
 
 
@@ -191,6 +193,13 @@ def do_insert(conn, tokens):
             break
         time.sleep(0.1)
     msg("do_insert(): done.")
+
+
+def do_quit(conn, tokens):
+    global cancelled
+    msg("do_quit()...")
+    send(conn, "OK\n")
+    cancelled = True
 
 
 def shutdown(args, code):

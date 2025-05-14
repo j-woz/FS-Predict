@@ -19,11 +19,14 @@ def main():
     try:
         sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
         sock.connect(args.socket)
-        print("connected")
+        msg("connected")
     except socket.error as e:
         print("error connecting: " + str(e))
-    if args.method == "insert":
+        exit(1)
+    if   args.method == "insert":
         do_insert(args, sock)
+    elif args.method == "quit":
+        do_quit(args, sock)
     else:
         abort("unknown method: '%s'" % args.method)
     msg("OK.")
@@ -77,6 +80,23 @@ def do_insert(args, sock):
     #     send(sock, "data: %i\n" % i)
     # send(sock, "EOF\n")
     return True
+
+
+def do_quit(args, sock):
+    send(sock, "quit\n")
+    try:
+        L = []
+        line = recv_line(sock, L)
+    except Exception as e:
+        abort("recvd bad line: " + str(e))
+        return False
+    if line is None:
+        abort("connection dropped.")
+    msg("response: '%s'" % line.strip())
+    if len(line) == 0:
+        abort("received empty response!")
+    if line.startswith("ERROR"):
+        abort(line)
 
 
 if __name__ == "__main__":

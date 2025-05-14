@@ -41,7 +41,7 @@ The output file
 
 == Methods
 
-`quit` WIP::
+`quit`::
 Cleanly shutdown the server.
 
 `insert`::
