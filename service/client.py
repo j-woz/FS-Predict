@@ -76,9 +76,7 @@ def do_insert(args, sock):
         abort(line)
 
     send_file(sock, args.input)
-    # for i in range(0,5):
-    #     send(sock, "data: %i\n" % i)
-    # send(sock, "EOF\n")
+
     return True
 
 
