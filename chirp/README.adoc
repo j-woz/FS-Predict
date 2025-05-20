@@ -4,35 +4,35 @@
 Add `$PWD` to `PATH` because script programs
 must be accessible via `ssh`.
 
-----
-Lambda:  9094: ./server 9094 ~/chirp-work
-GCE:     9095: ./server 9095 ~/chirp-work
-Polaris: 9096: ./server 9096 ~/chirp-work
-----
-
-SSH tunnel from Lambda to GCE
+* SSH tunnel from Lambda to GCE
 
 ----
 ./tunnel.sh compute-240-12.cels.anl.gov 9095 ~/chirp-work
 ----
 
-SSH ControlMaster from Polaris to GCE
-SSH tunnel        from Polaris to GCE
+* SSH ControlMaster from Polaris to GCE
+* SSH tunnel        from Polaris to GCE
 
 ----
 $ ./tunnel.sh -R compute-240-12 9096 ~/chirp-work
 ----
 
-SSH ControlMaster from Polaris to Lambda
-SSH tunnel        from Polaris to Lambda
+* SSH ControlMaster from Polaris to Lambda
+* SSH tunnel        from Polaris to Lambda
 
 ----
 $ ./tunnel.sh -R lambda1 9096 ~/chirp-work
 ----
 
-Start server on Lambda
-Start server on GCE
-Start server on Polaris
+* Start server on Lambda
+* Start server on GCE
+* Start server on Polaris
+
+----
+Lambda:  9094: ./server 9094 ~/chirp-work
+GCE:     9095: ./server 9095 ~/chirp-work
+Polaris: 9096: ./server 9096 ~/chirp-work
+----
 
 Run workflow for some data `FILE`:
 
