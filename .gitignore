@@ -135,7 +135,7 @@ venv/
 ENV/
 env.bak/
 venv.bak/
-
+predict/
 # Spyder project settings
 .spyderproject
 .spyproject
@@ -172,3 +172,6 @@ cython_debug/
 
 # PyPI configuration file
 .pypirc
+saved_models/xgboost_model.pkl
+service/workload.csv
+service/predicted.csv
