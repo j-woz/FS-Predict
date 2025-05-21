@@ -19,6 +19,7 @@ class Model:
         self.max = 0
 
     def insert(self, data):
+        """ data: a DataFrame """
         self.log("insert: " + str(data))
         if len(data) == 0: return True
         tokens = data.split(",")
@@ -36,6 +37,7 @@ class Model:
 
     def predict(self, data):
         """
+        data: a DataFrame
         return SUCCESS, VALUE
         """
         self.log("predict: " + str(data))

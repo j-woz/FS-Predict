@@ -23,7 +23,7 @@ predictor = None
 def main():
     global sock, predictor
     args = parse_args()
-    predictor = Predictor(args.model)
+    predictor = Predictor(args.model, args.keyvalue)
     if predictor.model is None: exit(1)
     sock = make_socket(args)
     if sock is None: exit(1)
@@ -47,11 +47,15 @@ def abort(m):
 def parse_args():
     import argparse
     parser = argparse.ArgumentParser(description="Run server")
+    parser.add_argument("-k", "--keyvalue",
+                        action="append",
+                        help="A key/value setting for the underlying model, e.g., saved_state='data.pkl'")
     parser.add_argument("-m", "--model", required=True,
-                        help="Path to pretrained model file (e.g. model.pkl)")
+                        help="The model module to dynamically import")
     parser.add_argument("-s", "--socket",
                         help="The local socket")
     args = parser.parse_args()
+    print(str(args))
     return args
 
 
@@ -257,7 +261,6 @@ def do_predict(conn, tokens):
         return
     msg(f"server: model returned {len(preds)} predictions")
 
-   
     # 5) Stream back each (timestamp, prediction)
     for i, (ts, value) in enumerate(preds, 1):
     # send "<TIMESTAMP_last>,<prediction>\n"
