@@ -27,10 +27,8 @@ class Model:
         value = float(tokens[6])
         if value < self.min:
             self.min = value
-            # self.log("new min: " + tokens[6])
         if value > self.max:
             self.max = value
-            # self.log("new max: " + tokens[6])
         return True
 
     def predict(self, data):
