@@ -7,7 +7,8 @@ import os, socket, sys, time
 # from collections import deque
 
 from utils import send, recv, recv_line
-
+import pandas as pd
+import io
 from predictor import Predictor
 
 
@@ -46,8 +47,8 @@ def abort(m):
 def parse_args():
     import argparse
     parser = argparse.ArgumentParser(description="Run server")
-    parser.add_argument("-m", "--model", default="rng",
-                        help="The model to import by name")
+    parser.add_argument("-m", "--model", required=True,
+                        help="Path to pretrained model file (e.g. model.pkl)")
     parser.add_argument("-s", "--socket",
                         help="The local socket")
     args = parser.parse_args()
@@ -214,25 +215,59 @@ def do_insert(conn, tokens):
 
 
 def do_predict(conn, tokens):
-    global cancelled
-    msg("do_predict()...")
+    """
+    Batch-predict handler with debug logs.
+    """
+    global cancelled, predictor
+    msg("server: entered do_predict()...")
+    # 1) Handshake
     send(conn, "OK\n")
-    done = False
+    msg("server: sent OK\n to client")
+
+    # 2) Collect raw CSV lines until EOF
+    raw_lines = []
     L = []
-    while not done and not cancelled:
+    while True:
         line = recv_line(conn, L)
+        msg(f"server: received line -> {repr(line)}")
         if line is None:
-            msg("connection dropped")
+            msg("server: connection dropped during receive")
             return
-        # msg("predict: line: " + line.strip())
-        if line == "EOF":
-            msg("predict: EOF")
+        if "EOF" in line:
+            msg("server: received EOF")
             break
-        b, value = predictor.predict(line.strip())
-        if not b: break
-        send(conn, str(value) + "\n")
+        raw_lines.append(line)
+    msg(f"server: collected {len(raw_lines)} lines")
+
+    # 3) Build a DataFrame from the collected lines
+    import io, pandas as pd
+    csv_data = "".join(raw_lines)
+    df_raw = pd.read_csv(
+        io.StringIO(csv_data),
+        header=None,
+        names=['TIMESTAMP','DY','HR','MN','OP','BYTES']
+    )
+    msg("server: constructed DataFrame for prediction")
+
+    # 4) Batch predict
+    success, preds = predictor.predict(df_raw)
+    if not success:
+        msg("server: prediction error, sending ERROR")
+        send(conn, "ERROR\n")
+        return
+    msg(f"server: model returned {len(preds)} predictions")
+
+   
+    # 5) Stream back each (timestamp, prediction)
+    for i, (ts, value) in enumerate(preds, 1):
+    # send "<TIMESTAMP_last>,<prediction>\n"
+        send(conn, f"{ts},{value}\n")
+        msg(f"server: sent prediction #{i} -> {ts},{value}\n")
         time.sleep(0.1)
-    msg("do_predict(): done.")
+
+# 6) Tell the client we’re done
+    send(conn, "EOF\n")
+    msg("server: do_predict() done.")
 
 
 def do_quit(conn, tokens):

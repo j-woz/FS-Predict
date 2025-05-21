@@ -85,35 +85,54 @@ def do_insert(args, sock):
 
 
 def do_predict(args, sock):
-    if args.input is None: abort("provide input file!")
+    """
+    1) Send 'predict' + wait OK
+    2) Stream input file rows + EOF
+    3) Read back predictions until server EOF
+    4) Write <orig_row>,<pred> into output
+    """
+    if args.input is None:
+        abort("provide input file!")
     if not os.path.exists(args.input):
-        abort("input does not exist: '%s'" % args.input)
+        abort(f"input does not exist: '{args.input}'")
 
+    # 1) Kick off prediction
+    msg("client: sending predict command...")
     send(sock, "predict\n")
-    try:
-        L = []
-        line = recv_line(sock, L)
-    except Exception as e:
-        abort("recvd bad line: " + str(e))
-        return False
-    if line is None: abort("connection dropped.")
-    msg("response: '%s'" % line.strip())
-    if len(line) == 0: abort("received empty response!")
-    if line.startswith("ERROR"): abort(line)
+    line = recv_line(sock, [])
+    msg(f"client: server response after predict -> '{line.strip()}'")
+    if line is None or not line.strip():
+        abort("no response from server")
+    if line.startswith("ERROR"):
+        abort(line)
 
+    # 2) Read & send all input rows, then EOF
+    msg(f"client: reading input file {args.input}")
+    raw_lines = open(args.input).read().splitlines()
+    msg(f"client: read {len(raw_lines)} lines from input")
+    msg("client: streaming lines to server...")
+    for l in raw_lines:
+        send(sock, (l + "\n"))
+    send(sock, "EOF\n")
+    msg("client: sent EOF")
+
+    # 3) Receive until server sends EOF
+    msg("client: receiving predictions...")
     with open(args.output, "w") as fp_out:
-        with open(args.input, "r") as fp_in:
-            while True:
-                line = fp_in.readline()
-                if len(line) == 0: break
-                send(sock, line)
-                value = recv_line(sock, [])
-                line = line.strip()
-                # Reduce precision:
-                value_string = "%0.6f" % float(value)
-                # msg("prediction: %s -> %s" % (line, value_string))
-                fp_out.write("%s,%s\n" % (line, value_string))
-            send(sock, "EOF\n")
+        while True:
+            pred_line = recv_line(sock, [])
+            if pred_line is None:
+                abort("connection dropped before all predictions received")
+            # server’s EOF marker
+            if pred_line.strip() == "EOF":
+                msg("client: received server EOF, stopping")
+                break
+
+            # pred_line is now "TIMESTAMP_last,pred_value\n"
+            fp_out.write(pred_line)
+            msg(f"client: wrote '{pred_line.strip()}'")
+
+    msg(f"client: Wrote predictions to {args.output}")
     return True
 
 

@@ -26,42 +26,34 @@ def recv(sock):
 
 def recv_line(sock, L):
     """
-    Provide L as an initially empty list
-    L is used as a cache for partial lines
+    Read exactly one line (ending with '\\n') from the socket, even across fragmented recv() calls.
+    L should be passed in as a list (initially empty)—we’ll keep any leftover bytes in L[0].
     """
-    for i in range(0, len(L)):
-        # print("check: %i" % i)
-        s = L[i]
-        if "\n" in s:
-            # print("NL")
-            result = ""
-            for _ in range(0, i+1):
-                t = L.pop(0)
-                # print("+ '%s'" % t.strip())
-                result += t
-            return result
+
+
+    # Initialize or grab the existing buffer
+    if not L:
+        L.append("")
+    buffer = L[0]
 
     while True:
-        # print("recv")
-        s = recv(sock)
-        if s is None: return None
-        if len(s) == 0:
+        # If we already have a newline, split it out
+        if "\n" in buffer:
+            line, rest = buffer.split("\n", 1)
+            L[0] = rest
+            return line + "\n"
+
+        # Otherwise, read more data
+        chunk = recv(sock)
+        if chunk is None:
+            return None   # connection closed
+        if chunk == "":
+            # no data this moment, wait a bit
             time.sleep(0.1)
             continue
-        tokens = s.split("\n")
-        if len(tokens) > 1:
-            t = "".join(L)
-            t += tokens[0]
-            L.clear()
-            for token in tokens[1:]:
-                if len(token) == 0: continue
-                L.append(token + "\n")
-                # print("append: %2i '%s'" % (len(L), token))
-            # print("return:    '%s'" % t)
-            return t
-        # print("chunk")
-        L.append(s)
-    return None
+
+        buffer += chunk
+        L[0] = buffer
 
 
 def send_file(sock, filename):
