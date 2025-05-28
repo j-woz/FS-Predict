@@ -10,7 +10,7 @@ from utils import send, recv, recv_line
 import pandas as pd
 import io
 from predictor import Predictor
-
+from retrain import retrain_mlp_model
 
 cancelled = False
 # The socket
@@ -19,10 +19,13 @@ sock = None
 sockfile = None
 predictor = None
 
-
+#add the models directory to the Python module search path
+sys.path.append(os.path.join(os.path.dirname(__file__), 'models'))
+settings = {}  # ← global settings dict from -k options
 def main():
-    global sock, predictor
+    global sock, predictor, settings
     args = parse_args()
+    settings = parse_keyvals(args.keyvalue)  # <-- NEW
     predictor = Predictor(args.model, args.keyvalue)
     if predictor.model is None: exit(1)
     sock = make_socket(args)
@@ -58,6 +61,14 @@ def parse_args():
     print(str(args))
     return args
 
+def parse_keyvals(keyvals):
+    result = {}
+    if keyvals:
+        for kv in keyvals:
+            if '=' in kv:
+                k, v = kv.split('=', 1)
+                result[k] = v
+    return result
 
 def make_socket(args):
     import random
@@ -201,20 +212,39 @@ def do_insert(conn, tokens):
     global cancelled
     msg("do_insert()...")
     send(conn, "OK\n")
-    done = False
     L = []
-    while not done and not cancelled:
+
+    received_data = []
+    while not cancelled:
         line = recv_line(conn, L)
         if line is None:
             msg("connection dropped")
             return
-        # msg("insert: line: " + line.strip())
-        if line == "EOF\n":
-            msg("insert: EOF")
+        if line.strip() == "EOF":
             break
-        b = predictor.insert(line.strip())
-        if not b: break
-        time.sleep(0.1)
+        received_data.append(line)
+
+    # Save uploaded data
+    temp_path = "/tmp/new_data.csv"
+    with open(temp_path, "w") as f:
+        f.writelines(received_data)
+    msg(f"Saved uploaded file to {temp_path}")
+
+    # Load paths from settings
+    model_path = settings.get("saved_state", "mlp_model.pkl")
+    scaler_path = settings.get("scaler_path", "scaler.pkl")
+
+    # Retrain model
+    success, message = retrain_mlp_model(
+        csv_path=temp_path,
+        model_path=model_path,
+        scaler_path=scaler_path
+    )
+    msg(message)
+
+    if os.path.exists(temp_path):
+        os.remove(temp_path)
+
     msg("do_insert(): done.")
 
 

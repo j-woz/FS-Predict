@@ -12,7 +12,7 @@ class Model:
     def log(self, m):
         print("RNG Model: " + str(m))
 
-    def __init__(self):
+    def __init__(self,settings = None):
         # self.log("initializing...")
         # Initial bounds:
         self.min = 1000
