@@ -29,9 +29,9 @@ $ ./tunnel.sh -R lambda1 9096 ~/chirp-work
 * Start server on Polaris
 
 ----
-Lambda:  9094: ./server 9094 ~/chirp-work
-GCE:     9095: ./server 9095 ~/chirp-work
-Polaris: 9096: ./server 9096 ~/chirp-work
+Lambda:  9094: ./server.sh 9094 ~/chirp-work
+GCE:     9095: ./server.sh 9095 ~/chirp-work
+Polaris: 9096: ./server.sh 9096 ~/chirp-work
 ----
 
 Run workflow for some data `FILE`:
