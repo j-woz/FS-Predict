@@ -9,6 +9,8 @@ source $THIS/tools.sh
 # DELAY: Max delay in minutes
 args -v DIR DELAY LIMIT FILE_SRC LOOPS - ${*}
 
+check-existence -p overnight.sh -v $FILE_SRC || return 1
+
 zmodload zsh/mathfunc
 
 make_log -s $DIR workflow

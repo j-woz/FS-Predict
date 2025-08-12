@@ -200,3 +200,48 @@ report()
     print "$PREFIX: $NAME=${(P)NAME}"
   done
 }
+
+check-existence()
+{
+  local HELP="\
+Fails on first file name that does not exist
+Prints failure message with -v, verbose with -vv
+Can intermix MODE with names, -f or -d or -e
+Usage: check-existence [-p PREFIX] [-v] -- [-f|-d|-e|<filename>]*
+PREFIX is for messages."
+
+  local t MODE="-f" PREFIX="" VERBOSE=0
+  while getopts "hp:v" OPTION
+  do
+    case ${OPTION}
+    in
+      p) PREFIX="${OPTARG}: "   ;;
+      v) (( ++VERBOSE ))        ;;
+      h) print ${HELP} ; return ;;
+    esac
+  done
+  shift $(( OPTIND - 1 ))
+
+  for t in ${*}
+  do
+    if [[ ${#t#-} != ${#t} ]]
+    then
+      MODE=${t}
+      continue
+    fi
+    if (( VERBOSE > 1 ))
+    then
+      print "${PREFIX}checking ${MODE} ${t} ..."
+    fi
+    if ! test ${MODE} ${~t}
+    then
+      if (( VERBOSE ))
+      then
+        print "${PREFIX}not found: ${t}"
+      else
+        print ${t}
+      fi
+      return 1
+    fi
+  done
+}
