@@ -1,0 +1,15 @@
+#!/bin/zsh
+set -eu
+
+# PRODUCER
+
+if (( ${#*} != 3 )) {
+  print "diaspora-producer: Provide ROOT_PATH TOPIC FIFO"
+  return 1
+}
+
+ROOT_PATH=$1
+TOPIC=$2
+FIFO=$3
+
+echo "$FIFO -> $TOPIC" > $ROOT_PATH/ctl.fifo
