@@ -68,4 +68,5 @@ After one consumer/producer cycle, the daemon automatically shuts down.  Need to
 
 == Experiment
 
-![Workflow Diagram](https://github.com/j-woz/FS-Predict/blob/prediction/mofka/workflow.png "Workflow Diagram")
+image::https://github.com/j-woz/FS-Predict/blob/prediction/mofka/workflow.png
+
