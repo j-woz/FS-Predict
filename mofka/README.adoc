@@ -67,3 +67,5 @@ Tells the daemon to connect the `TOPIC` to the given FIFO at `FIFO_PRODUCER` for
 After one consumer/producer cycle, the daemon automatically shuts down.  Need to be able to issue multiple messages over the lifetime of a daemon.
 
 == Experiment
+
+![Workflow Diagram](https://github.com/j-woz/FS-Predict/blob/prediction/mofka/workflow.png "Workflow Diagram")
