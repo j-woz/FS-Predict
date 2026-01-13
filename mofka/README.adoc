@@ -1,0 +1,69 @@
+
+= Diaspora Streaming Integration for I/O Performance Predictors
+
+Diaspora Streaming API:
+https://diaspora-stream-api.readthedocs.io/en/latest
+
+== Install
+
+. Build Mofka from Spack
+. Load main Spack with Mofka build
+. `$ git clone git@github.com:diaspora-project/diaspora-spack-packages.git`
+. `$ spack repo add ~/proj/spack/diaspora-spack-packages/spack_repo/diaspora`
+. `$ spack repo list`
+. `$ spack install diaspora-stream-api`
+. `$ spack load diaspora-stream-api@0.5.1`
+
+== Setup
+
+. Initialize Spack
+. `$ spack load diaspora-stream-api@0.5.1`
+
+== Tools
+
+=== Variables
+
+`$ROOT_PATH`::
+A shell variable the Diaspora streaming file driver data store directory.  Typically something like `/tmp/$USER/diaspora-data`
+
+`$TOPIC`::
+A topic string, named by the user.
+
+=== Scripts
+
+`diaspora-fifo ROOT_PATH`::
+Start the daemon at the data directory `ROOT_PATH` using the FIFO mechanism.
+
+`diaspora-topic-create ROOT_PATH TOPIC`::
+Create a topic at data store `ROOT_PATH`.  +
+The daemon need not be running.
+
+`diaspora-topic-list ROOT_PATH`::
+List the topics available at data store `ROOT_PATH`.  +
+The daemon need not be running.
+
+`cat-consumer FIFO_CONSUMER`::
+Resets the given FIFO and issues `cat` on it.  +
+Does not use the `diaspora` command.  +
+The daemon need not be running.  +
+Must be used before `diaspora-consumer`.
+
+`diaspora-consumer ROOT_PATH TOPIC FIFO_CONSUMER`::
+Tells the daemon to connect the `TOPIC` to the given FIFO at `FIFO_CONSUMER` for message consumption.
+
+`diaspora-producer ROOT_PATH TOPIC FIFO_PRODUCER`::
+Tells the daemon to connect the `TOPIC` to the given FIFO at `FIFO_PRODUCER` for message production.
+
+=== Usage ordering
+
+. `diaspora-fifo`
+. `cat-consumer`
+. `diaspora-consumer`
+. `diaspora-producer`
+. User write to the producer FIFO
+
+=== Status
+
+After one consumer/producer cycle, the daemon automatically shuts down.  Need to be able to issue multiple messages over the lifetime of a daemon.
+
+== Experiment
