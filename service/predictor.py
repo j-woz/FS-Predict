@@ -41,5 +41,5 @@ class Predictor:
 
     def predict(self, raw):
         """ Fill in DURATION for given workload """
-        b, value = self.model.predict(data)
+        b, value = self.model.predict(raw)
         return (b, value)
