@@ -10,7 +10,6 @@ from utils import send, recv, recv_line
 import pandas as pd
 import io
 from predictor import Predictor
-from retrain import retrain_mlp_model
 
 cancelled = False
 # The socket

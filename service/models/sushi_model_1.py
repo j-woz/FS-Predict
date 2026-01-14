@@ -1,16 +1,16 @@
 
 """
-Class name rng.Model
+Class name sushil_model_1.Model
+Feel free to rename!
 """
 
 import random
 
+from retrain import retrain_mlp_model
+
 class Model:
 
     """
-    RNG = Random Number Generator Model
-    Returns random predictions in range of inserted values
-    Serves as an example for future Model implementations
     """
 
     def log(self, m):
@@ -24,6 +24,7 @@ class Model:
 
     def insert(self, data):
         """ data: a DataFrame """
+        # Retrain...
         self.log("insert: " + str(data))
         if len(data) == 0: return True
         tokens = data.split(",")
