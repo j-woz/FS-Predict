@@ -43,3 +43,9 @@ class Predictor:
         """ Fill in DURATION for given workload """
         b, value = self.model.predict(raw)
         return (b, value)
+
+    def save(self, filename):
+        self.model.save(filename)
+
+    def load(self, filename):
+        self.model.load(filename)
