@@ -1,0 +1,17 @@
+#!/bin/zsh
+set -eu
+
+# CAT CONSUMER
+
+if (( ${#*} != 1 )) {
+  print "cat-consumer: Provide FIFO"
+  return 1
+}
+
+FIFO=$1
+
+if [[ -e $FIFO ]] rm -v $FIFO
+
+mkfifo $FIFO
+print "created '$FIFO'"
+cat    $FIFO

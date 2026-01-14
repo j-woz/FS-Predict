@@ -1,1 +1,71 @@
 # FS-Predict
+
+== 🚀 Server Setup
+
+Start the prediction server using a pre-trained models (for example MLPRegressor()) and associated scaler:
+
+[source, bash]
+----
+python server.py -m usejoblib -k saved_state=../saved_models/mlp_model.pkl -k scaler_path=../saved_models/scaler.pkl -s ../tmp/sus/sock.s
+----
+
+=== 🔍 Parameter Details
+
+* `-m usejoblib`  
+  Loads the `usejoblib.py` module from the `models/` directory to serve predictions.
+
+* `-k saved_state=../saved_models/mlp_model.pkl`  
+  Path to the saved MLP model serialized with `joblib`.
+
+* `-k scaler_path=../saved_models/scaler.pkl`  
+  Path to the saved `MinMaxScaler` used during model training.
+
+* `-s ../tmp/sus/sock.s`  
+  Unix domain socket file path for server-client communication.
+
+== 🔁 Model Retraining (Client Command)
+
+Retrain the model on a new dataset such as `lambda.csv`:
+
+[source, bash]
+----
+python client.py -s ../tmp/sus/sock.s insert -i lambda.csv
+----
+
+=== 🔍 Parameter Details
+
+* `-s ../tmp/sus/sock.s`  
+  Path to the server's Unix socket.
+
+* `insert`  
+  Client command to trigger model retraining.
+
+* `-i lambda.csv`  
+  Input file containing new training data. This file must include the `DURATION` column and other I/O fields.
+
+== 📈 Prediction Mode (Client Command)
+
+Send workload logs to the server and receive predicted durations:
+
+[source, bash]
+----
+python client.py -s ../tmp/sus/sock.s predict -i workload.csv -o predicted.csv
+----
+
+=== 🔍 Parameter Details
+
+* `-s ../tmp/sus/sock.s`  
+  Path to the server’s Unix socket.
+
+* `predict`  
+  Client command to initiate prediction.
+
+* `-i workload.csv`  
+  Input CSV file with the columns: `TIMESTAMP`, `DY`, `HR`, `MN`, `OP`, `BYTES`. No `DURATION` column is required here.
+
+* `-o predicted.csv`  
+  Output file that receives predictions as: `<TIMESTAMP>,<PREDICTED_DURATION>`
+
+== 📝 Notes
+
+* Model and scaler must be saved using `joblib.dump()` before being loaded by the server.

@@ -12,13 +12,14 @@ class Model:
     def log(self, m):
         print("RNG Model: " + str(m))
 
-    def __init__(self):
+    def __init__(self,settings = None):
         # self.log("initializing...")
         # Initial bounds:
         self.min = 1000
         self.max = 0
 
     def insert(self, data):
+        """ data: a DataFrame """
         self.log("insert: " + str(data))
         if len(data) == 0: return True
         tokens = data.split(",")
@@ -36,6 +37,7 @@ class Model:
 
     def predict(self, data):
         """
+        data: a DataFrame
         return SUCCESS, VALUE
         """
         self.log("predict: " + str(data))

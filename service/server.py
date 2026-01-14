@@ -7,9 +7,10 @@ import os, socket, sys, time
 # from collections import deque
 
 from utils import send, recv, recv_line
-
+import pandas as pd
+import io
 from predictor import Predictor
-
+from retrain import retrain_mlp_model
 
 cancelled = False
 # The socket
@@ -18,11 +19,14 @@ sock = None
 sockfile = None
 predictor = None
 
-
+#add the models directory to the Python module search path
+sys.path.append(os.path.join(os.path.dirname(__file__), 'models'))
+settings = {}  # ← global settings dict from -k options
 def main():
-    global sock, predictor
+    global sock, predictor, settings
     args = parse_args()
-    predictor = Predictor(args.model)
+    settings = parse_keyvals(args.keyvalue)  # <-- NEW
+    predictor = Predictor(args.model, args.keyvalue)
     if predictor.model is None: exit(1)
     sock = make_socket(args)
     if sock is None: exit(1)
@@ -46,13 +50,25 @@ def abort(m):
 def parse_args():
     import argparse
     parser = argparse.ArgumentParser(description="Run server")
-    parser.add_argument("-m", "--model", default="rng",
-                        help="The model to import by name")
+    parser.add_argument("-k", "--keyvalue",
+                        action="append",
+                        help="A key/value setting for the underlying model, e.g., saved_state='data.pkl'")
+    parser.add_argument("-m", "--model", required=True,
+                        help="The model module to dynamically import")
     parser.add_argument("-s", "--socket",
                         help="The local socket")
     args = parser.parse_args()
+    print(str(args))
     return args
 
+def parse_keyvals(keyvals):
+    result = {}
+    if keyvals:
+        for kv in keyvals:
+            if '=' in kv:
+                k, v = kv.split('=', 1)
+                result[k] = v
+    return result
 
 def make_socket(args):
     import random
@@ -196,43 +212,95 @@ def do_insert(conn, tokens):
     global cancelled
     msg("do_insert()...")
     send(conn, "OK\n")
-    done = False
     L = []
-    while not done and not cancelled:
+
+    received_data = []
+    while not cancelled:
         line = recv_line(conn, L)
         if line is None:
             msg("connection dropped")
             return
-        # msg("insert: line: " + line.strip())
-        if line == "EOF\n":
-            msg("insert: EOF")
+        if line.strip() == "EOF":
             break
-        b = predictor.insert(line.strip())
-        if not b: break
-        time.sleep(0.1)
+        received_data.append(line)
+
+    # Save uploaded data
+    temp_path = "/tmp/new_data.csv"
+    with open(temp_path, "w") as f:
+        f.writelines(received_data)
+    msg(f"Saved uploaded file to {temp_path}")
+
+    # Load paths from settings
+    model_path = settings.get("saved_state", "mlp_model.pkl")
+    scaler_path = settings.get("scaler_path", "scaler.pkl")
+
+    # Retrain model
+    success, message = retrain_mlp_model(
+        csv_path=temp_path,
+        model_path=model_path,
+        scaler_path=scaler_path
+    )
+    msg(message)
+
+    if os.path.exists(temp_path):
+        os.remove(temp_path)
+
     msg("do_insert(): done.")
 
 
 def do_predict(conn, tokens):
-    global cancelled
-    msg("do_predict()...")
+    """
+    Batch-predict handler with debug logs.
+    """
+    global cancelled, predictor
+    msg("server: entered do_predict()...")
+    # 1) Handshake
     send(conn, "OK\n")
-    done = False
+    msg("server: sent OK\n to client")
+
+    # 2) Collect raw CSV lines until EOF
+    raw_lines = []
     L = []
-    while not done and not cancelled:
+    while True:
         line = recv_line(conn, L)
+        msg(f"server: received line -> {repr(line)}")
         if line is None:
-            msg("connection dropped")
+            msg("server: connection dropped during receive")
             return
-        # msg("predict: line: " + line.strip())
-        if line == "EOF":
-            msg("predict: EOF")
+        if "EOF" in line:
+            msg("server: received EOF")
             break
-        b, value = predictor.predict(line.strip())
-        if not b: break
-        send(conn, str(value) + "\n")
+        raw_lines.append(line)
+    msg(f"server: collected {len(raw_lines)} lines")
+
+    # 3) Build a DataFrame from the collected lines
+    import io, pandas as pd
+    csv_data = "".join(raw_lines)
+    df_raw = pd.read_csv(
+        io.StringIO(csv_data),
+        header=None,
+        names=['TIMESTAMP','DY','HR','MN','OP','BYTES']
+    )
+    msg("server: constructed DataFrame for prediction")
+
+    # 4) Batch predict
+    success, preds = predictor.predict(df_raw)
+    if not success:
+        msg("server: prediction error, sending ERROR")
+        send(conn, "ERROR\n")
+        return
+    msg(f"server: model returned {len(preds)} predictions")
+
+    # 5) Stream back each (timestamp, prediction)
+    for i, (ts, value) in enumerate(preds, 1):
+    # send "<TIMESTAMP_last>,<prediction>\n"
+        send(conn, f"{ts},{value}\n")
+        msg(f"server: sent prediction #{i} -> {ts},{value}\n")
         time.sleep(0.1)
-    msg("do_predict(): done.")
+
+# 6) Tell the client we’re done
+    send(conn, "EOF\n")
+    msg("server: do_predict() done.")
 
 
 def do_quit(conn, tokens):

@@ -1,0 +1,14 @@
+#!/bin/zsh
+set -eu
+
+# DIASPORA TOPIC LIST
+
+if (( ${#*} != 1 )) {
+  print "consumer: Provide ROOT_PATH"
+  return 1
+}
+
+ROOT_PATH=$1
+
+diaspora-ctl topic list --driver files \
+                        --driver.root_path $ROOT_PATH
