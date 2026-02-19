@@ -1,18 +1,15 @@
-
 """
-XFER CLIENT MAIN
+XFER CLIENT MAIN (OBSERVE + PREDICT)
 """
 
 import socket
 import os
-# from collections import deque
 
 from utils import send, recv_line, send_file
 
 
 def main():
     args = parse_args()
-    # print(str(args))
     if args.socket is None:
         abort("provide the socket file!")
     sock = connect(args)
@@ -23,14 +20,10 @@ def main():
 def parse_args():
     import argparse
     parser = argparse.ArgumentParser(description="Query server")
-    parser.add_argument("-s", "--socket",
-                        help="The local socket file")
-    parser.add_argument("method",
-                        help="The query method to invoke")
-    parser.add_argument("-i", "--input",
-                        help="The input query data to send")
-    parser.add_argument("-o", "--output",
-                        help="The output data to save")
+    parser.add_argument("-s", "--socket", help="The local socket file")
+    parser.add_argument("method", help="The query method to invoke")
+    parser.add_argument("-i", "--input", help="The input query data to send")
+    parser.add_argument("-o", "--output", help="The output data to save (predict only)")
     args = parser.parse_args()
     return args
 
@@ -55,111 +48,128 @@ def connect(args):
 
 
 def do_method(args, sock):
-    if   args.method == "insert":
-        do_insert(args, sock)
+    if args.method == "observe":
+        do_observe(args, sock)
     elif args.method == "predict":
         do_predict(args, sock)
     elif args.method == "quit":
         do_quit(sock)
     else:
-        abort("unknown method: '%s'" % args.method)
+        abort(f"unknown method: '{args.method}'")
 
 
-def do_insert(args, sock):
-    check_input(args)
-    send(sock, "insert\n")
-    try:
-        L = []
-        line = recv_line(sock, L)
-    except Exception as e:
-        abort("recvd bad line: " + str(e))
-        return False
-    if line is None: abort("connection dropped.")
-    msg("response: '%s'" % line.strip())
-    if len(line) == 0: abort("received empty response!")
-    if line.startswith("ERROR"): abort(line)
+def _check_input_file(path: str):
+    if path is None:
+        abort("provide input file!")
+    if not os.path.exists(path):
+        abort(f"input does not exist: '{path}'")
 
+
+def _handshake(sock, cmd: str):
+    """
+    Send command, wait for OK or ERROR line.
+    Returns first response line (string).
+    """
+    msg(f"client: sending {cmd} command...")
+    send(sock, f"{cmd}\n")
+    line = recv_line(sock, [])
+    if line is None or not line.strip():
+        abort("no response from server")
+    msg(f"client: server response -> '{line.strip()}'")
+    if line.startswith("ERROR"):
+        abort(line.strip())
+    return line
+
+
+def do_observe(args, sock):
+    """
+    OBSERVE:
+      1) Send 'observe' + wait OK
+      2) Send entire input file (7-col rows including DURATION) + EOF
+      3) Read until server EOF (server usually just returns EOF)
+    """
+    _check_input_file(args.input)
+
+    _handshake(sock, "observe")
+
+    msg(f"client: sending OBSERVE data from {args.input}")
     send_file(sock, args.input)
+    msg("client: sent EOF for observe")
+
+    # read until server EOF
+    while True:
+        line = recv_line(sock, [])
+        if line is None:
+            abort("connection dropped during observe response")
+        if line.strip() == "EOF":
+            msg("client: observe complete (server EOF)")
+            break
+        if line.startswith("ERROR"):
+            abort(line.strip())
 
     return True
 
 
 def do_predict(args, sock):
     """
-    1) Send 'predict' + wait OK
-    2) Stream input file rows + EOF
-    3) Read back predictions until server EOF
-    4) Write <orig_row>,<pred> into output
+    PREDICT (future covariates only):
+      1) Send 'predict' + wait OK
+      2) Stream input file rows + EOF
+      3) Receive predictions until server EOF
+      4) Write "<timestamp>,<pred>" lines to output file
     """
-    if args.input is None:
-        abort("provide input file!")
-    if not os.path.exists(args.input):
-        abort(f"input does not exist: '{args.input}'")
+    _check_input_file(args.input)
+    if args.output is None:
+        abort("provide output file (-o) for predict!")
 
-    # 1) Kick off prediction
-    msg("client: sending predict command...")
-    send(sock, "predict\n")
-    line = recv_line(sock, [])
-    msg(f"client: server response after predict -> '{line.strip()}'")
-    if line is None or not line.strip():
-        abort("no response from server")
-    if line.startswith("ERROR"):
-        abort(line)
+    _handshake(sock, "predict")
 
-    # 2) Read & send all input rows, then EOF
-    msg(f"client: reading input file {args.input}")
-    raw_lines = open(args.input).read().splitlines()
-    msg(f"client: read {len(raw_lines)} lines from input")
-    msg("client: streaming lines to server...")
-    for l in raw_lines:
-        send(sock, (l + "\n"))
-    send(sock, "EOF\n")
-    msg("client: sent EOF")
+    msg(f"client: sending PREDICT data from {args.input}")
+    send_file(sock, args.input)
+    msg("client: sent EOF for predict")
 
-    # 3) Receive until server sends EOF
     msg("client: receiving predictions...")
+
+    # IMPORTANT: persistent buffer for recv_line()
+    buf = []
+
     with open(args.output, "w") as fp_out:
         while True:
-            pred_line = recv_line(sock, [])
+            pred_line = recv_line(sock, buf)
+
             if pred_line is None:
                 abort("connection dropped before all predictions received")
-            # server’s EOF marker
-            if pred_line.strip() == "EOF":
+
+            line = pred_line.strip()
+
+            if line == "EOF":
                 msg("client: received server EOF, stopping")
                 break
 
-            # pred_line is now "TIMESTAMP_last,pred_value\n"
+            if line.startswith("ERROR"):
+                msg(f"client: server error -> {line}")
+                continue
+
+            # pred_line already includes '\n' in most implementations of recv_line()
             fp_out.write(pred_line)
-            msg(f"client: wrote '{pred_line.strip()}'")
+
+            msg(f"Received prediction: {line}")
 
     msg(f"client: Wrote predictions to {args.output}")
     return True
 
-
-def check_input(args):
-    if args.input is None: abort("provide input file!")
-    if not os.path.exists(args.input):
-        abort("input does not exist: '%s'" % args.input)
-
-
-def check_io(args):
-    check_input(args)
-    if args.output is None: abort("provide output file!")
-
-
 def do_quit(sock):
     send(sock, "quit\n")
-    try:
-        L = []
-        line = recv_line(sock, L)
-    except Exception as e:
-        abort("recvd bad line: " + str(e))
-        return False
-    if line is None: abort("connection dropped.")
+    line = recv_line(sock, [])
+    if line is None:
+        abort("connection dropped.")
     msg("response: '%s'" % line.strip())
-    if len(line) == 0: abort("received empty response!")
-    if line.startswith("ERROR"): abort(line)
+    if not line.strip():
+        abort("received empty response!")
+    if line.startswith("ERROR"):
+        abort(line.strip())
     return True
 
 
-if __name__ == "__main__": main()
+if __name__ == "__main__":
+    main()

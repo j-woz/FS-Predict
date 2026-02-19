@@ -1,0 +1,19 @@
+name: fs-predict-tft
+channels:
+  - conda-forge
+dependencies:
+  - python=3.11
+  - pip
+  - pip:
+      - numpy==2.3.1
+      - pandas
+      - pytz
+      - scikit-learn==1.7.0
+      - joblib==1.5.1
+      - pyyaml
+      - tqdm
+      - torch==2.7.1
+      - torchvision==0.22.1
+      - torchmetrics==1.7.3
+      - lightning==2.5.2
+      - -e git+https://github.com/sushilregmi/pytorch-forecasting.git@814f1340110f3db64d586e1f391df4d002ad6711#egg=pytorch_forecasting

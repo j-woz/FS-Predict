@@ -1,5 +1,3 @@
-
-from preprocessing import preprocess_workload
 import numpy as np
 
 """
@@ -26,26 +24,32 @@ class Predictor:
             self.log("init failed: " + str(e))
             self.model = None
             return
+
         settings = {}
         for kv in keyvalue:
             tokens = kv.split("=")
             if len(tokens) != 2:
                 raise(Exception("bad keyvalue pair: '%s'" % kv))
             settings[tokens[0]] = tokens[1]
+        
+        # Initialize model (use the 'Model' class from the specified module)
         self.model = module.Model(settings)
 
     def insert(self, data):
-        """ Insert small recent measurements """
+        """ Insert small recent measurements (not used in Option A) """
         b = self.model.insert(data)
         return b
 
     def predict(self, raw):
-        """ Fill in DURATION for given workload """
+        """ Fill in DURATION for given workload (prediction for TFT) """
+        # Returns a tuple of success flag and predicted values
         b, value = self.model.predict(raw)
         return (b, value)
 
     def save(self, filename):
+        """ Save model checkpoint """
         self.model.save(filename)
 
     def load(self, filename):
+        """ Load model checkpoint """
         self.model.load(filename)
