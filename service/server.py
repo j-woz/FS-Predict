@@ -16,7 +16,7 @@ and streams back predictions as:
 until EOF
 """
 
-import os, socket, sys, time
+import os, signal, socket, sys, time
 import numpy as np
 from utils import send, recv_line
 import pandas as pd
@@ -45,6 +45,7 @@ future_buf  = pd.DataFrame()   # per-second rows without duration_sum
 
 def main():
     global sock, predictor, settings, HISTORY_E, FUTURE_H
+    msg("server starting: PID %i" % os.getpid())
     args = parse_args()
     settings = parse_keyvals(args.keyvalue)
 
@@ -230,9 +231,10 @@ def setup_handlers():
     }
 
 
-def signal_handler(unused_sig, unused_frame):
+def signal_handler(sig, unused_frame):
     global cancelled, sock
-    print("\nxfer-server: cancelled!\n")
+    name = signal.Signals(sig).name
+    print("\nxfer-server: cancelled: signal %i = %s\n" % (sig, name))
     if cancelled:
         print("\nxfer-server: closing socket!\n")
         sock.close()
