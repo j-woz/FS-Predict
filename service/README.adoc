@@ -3,6 +3,14 @@
 
 The idea is that the service is always running, and the user can insert new data as an observation or query it for a prediction.
 
+== Installation
+
+Install
+
+----
+$ conda install numpy pandas pytz
+----
+
 == Usage
 
 Run the server:
