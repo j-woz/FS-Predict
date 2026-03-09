@@ -60,6 +60,7 @@ def main():
 
     sock = make_socket(args)
     if sock is None:
+        abort("could not make socket!")
         exit(1)
 
     code = run_server(args)
@@ -182,7 +183,7 @@ def run_server(args):
 
     while not cancelled:
         sock.listen(1)
-        msg("accept")
+        msg("accepting ...")
 
         connected = False
         while not cancelled and not connected:
@@ -195,6 +196,8 @@ def run_server(args):
                 abort("accept failed: " + str(e))
                 return 1
 
+        msg("client is connected.")
+            
         if cancelled:
             msg("cancelled accept loop...")
             break
@@ -215,6 +218,7 @@ def run_server(args):
 
 
 def setup_handlers():
+    """Setup both signal handlers and client service method handlers"""
     import signal
     signal.signal(signal.SIGINT, signal_handler)
     signal.signal(signal.SIGHUP, signal_handler)
@@ -532,9 +536,12 @@ def do_quit(conn, tokens):
 def shutdown(args, code):
     global sock, sockfile
     if sock is not None:
-        msg("closing socket")
+        msg("closing socket ...")
         sock.close()
     if args.socket is None and sockfile and os.path.exists(sockfile):
+        # We only remove the socket if we created it as a temp file,
+        # not if the user provided it.
+        msg("removing sock file ...")
         os.remove(sockfile)
     msg("shutdown.")
     exit(code)
