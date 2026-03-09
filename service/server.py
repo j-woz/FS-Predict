@@ -25,7 +25,8 @@ os.environ.setdefault("CUDA_VISIBLE_DEVICES", "0")
 from predictor import Predictor
 from preprocessing import aggregate_raw_to_seconds
 
-cancelled = False
+cancelled = False  #  False until we are shutting down,
+                   #        possibly due to a signal
 sock = None
 sockfile = None
 predictor = None
@@ -132,6 +133,7 @@ def make_socket(args):
 
 
 def get_tmp():
+    """Make a temp directory - see README"""
     tmp = None
     if os.getenv("XFER_TMP") is not None:
         tmp = os.getenv("XFER_TMP")
