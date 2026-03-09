@@ -1,7 +1,7 @@
 
 = Prediction service
 
-The idea is that the service is always running, and the user can insert new data or query it for a prediction.
+The idea is that the service is always running, and the user can insert new data as an observation or query it for a prediction.
 
 == Usage
 
@@ -18,7 +18,7 @@ Run the client:
 
 ----
 $ python client.py -s SOCKET_FILE METHOD [-i INPUT_FILE] [-o OUTPUT_FILE]
-$ python client.py -s /tmp/woz/sock.s insert  -i log.csv
+$ python client.py -s /tmp/woz/sock.s observe -i log.csv
 $ python client.py -s /tmp/woz/sock.s predict -i workload.csv -o predicted.csv
 $ python client.py -s /tmp/woz/sock.s quit
 
@@ -52,7 +52,7 @@ The output file
 `quit`::
 Cleanly shutdown the server.
 
-`insert`::
+`observe`::
 Insert observed input data into the service.  The output file is ignored.
 
 `predict`::
