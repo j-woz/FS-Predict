@@ -172,8 +172,15 @@ cython_debug/
 
 # PyPI configuration file
 .pypirc
-saved_models/mlp_model.pkl
-saved_models/xgboost_model.pkl
-saved_models/scaler.pkl
+service/saved_models/mlp_model.pkl
+service/saved_models/xgboost_model.pkl
+service/saved_models/scaler.pkl
 service/workload.csv
 service/predicted.csv
+service/data/future_cov.csv
+service/data/observed.csv
+service/data/predicted.csv
+service/data/test.csv
+service/lightning_logs/
+service/src/
+mofka/diaspora-spack-packages
