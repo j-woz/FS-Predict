@@ -1,71 +1,79 @@
-# FS-Predict
+= FS-Predict
 
-== 🚀 Server Setup
+This repository contains the FS-Predict inference service. The active TFT-based socket service lives under `service/`.
 
-Start the prediction server using a pre-trained models (for example MLPRegressor()) and associated scaler:
+For detailed data format and preprocessing behavior, see `service/README.adoc`.
 
-[source, bash]
+== Important Commands for TFT Inference Service
+
+Change into the service directory first:
+
+[source,bash]
 ----
-python server.py -m usejoblib -k saved_state=../saved_models/mlp_model.pkl -k scaler_path=../saved_models/scaler.pkl -s ../tmp/sus/sock.s
-----
-
-=== 🔍 Parameter Details
-
-* `-m usejoblib`  
-  Loads the `usejoblib.py` module from the `models/` directory to serve predictions.
-
-* `-k saved_state=../saved_models/mlp_model.pkl`  
-  Path to the saved MLP model serialized with `joblib`.
-
-* `-k scaler_path=../saved_models/scaler.pkl`  
-  Path to the saved `MinMaxScaler` used during model training.
-
-* `-s ../tmp/sus/sock.s`  
-  Unix domain socket file path for server-client communication.
-
-== 🔁 Model Retraining (Client Command)
-
-Retrain the model on a new dataset such as `lambda.csv`:
-
-[source, bash]
-----
-python client.py -s ../tmp/sus/sock.s insert -i lambda.csv
+cd service
 ----
 
-=== 🔍 Parameter Details
+=== 1. Create and activate the environment
 
-* `-s ../tmp/sus/sock.s`  
-  Path to the server's Unix socket.
-
-* `insert`  
-  Client command to trigger model retraining.
-
-* `-i lambda.csv`  
-  Input file containing new training data. This file must include the `DURATION` column and other I/O fields.
-
-== 📈 Prediction Mode (Client Command)
-
-Send workload logs to the server and receive predicted durations:
-
-[source, bash]
+[source,bash]
 ----
-python client.py -s ../tmp/sus/sock.s predict -i workload.csv -o predicted.csv
+conda env create -f environment-deploy.yml
+conda activate fs-predict-tft
 ----
 
-=== 🔍 Parameter Details
+=== 2. Prepare observed and future input files
 
-* `-s ../tmp/sus/sock.s`  
-  Path to the server’s Unix socket.
+If you start from one raw workload file such as `data/test.csv`, split it into observed history and future covariates:
 
-* `predict`  
-  Client command to initiate prediction.
+[source,bash]
+----
+python make_obs_fut.py \
+  -i data/test.csv \
+  --observed-output data/observed.csv \
+  --future-output data/future_cov.csv \
+  -E 50 \
+  -H 20
+----
 
-* `-i workload.csv`  
-  Input CSV file with the columns: `TIMESTAMP`, `DY`, `HR`, `MN`, `OP`, `BYTES`. No `DURATION` column is required here.
+=== 3. Start the TFT inference server
 
-* `-o predicted.csv`  
-  Output file that receives predictions as: `<TIMESTAMP>,<PREDICTED_DURATION>`
+[source,bash]
+----
+python server.py \
+  -m usetft \
+  -k ckpt_path=./saved_models/tft.ckpt \
+  -k dataset_path=./saved_models/tft_dataset.pkl \
+  -k encoder_len=50 \
+  -k horizon=20 \
+  -k device=cuda \
+  -k batch_size=64 \
+  -s /tmp/fs_predict_tft.sock
+----
 
-== 📝 Notes
+=== 4. Send observed history
 
-* Model and scaler must be saved using `joblib.dump()` before being loaded by the server.
+[source,bash]
+----
+python client.py -s /tmp/fs_predict_tft.sock observe -i data/observed.csv
+----
+
+=== 5. Send future covariates and save predictions
+
+[source,bash]
+----
+python client.py -s /tmp/fs_predict_tft.sock predict -i data/future_cov.csv -o data/predicted.csv
+----
+
+=== 6. Stop the service
+
+[source,bash]
+----
+python client.py -s /tmp/fs_predict_tft.sock quit
+----
+
+== Notes
+
+* `saved_models/tft.ckpt` is the trained TFT checkpoint.
+* `saved_models/tft_dataset.pkl` is not the raw dataset CSV. It is the serialized training `TimeSeriesDataSet` object used to restore the same encoders, normalizers, and feature configuration during inference.
+* During `observe` and `predict`, the server automatically runs preprocessing and aggregates raw event-level rows into per-second features before inference.
+* `encoder_len` and `horizon` in the server command should match the `-E` and `-H` values used when generating `observed.csv` and `future_cov.csv`.
