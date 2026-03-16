@@ -46,11 +46,14 @@ jobs:
       - name: Wait for server to exit
         run: |
           pid=$(cat /tmp/server.pid)
-          timeout 10s wait $pid
-          code=$?
-          if [ $code -eq 124 ]; then
+          for i in $(seq 1 10); do
+            kill -0 $pid 2>/dev/null || break
+            sleep 1
+          done
+          if kill -0 $pid 2>/dev/null; then
             echo "ERROR: server did not exit after quit, killing it"
             kill $pid 2>/dev/null || true
             exit 1
           fi
-          echo "Server exited with code $code"
+          wait $pid
+          echo "Server exited with code $?"
