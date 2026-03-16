@@ -1,4 +1,5 @@
 import os
+import argparse
 import pandas as pd
 
 from preprocessing import aggregate_raw_to_seconds
@@ -65,5 +66,49 @@ def main(
     print(f"Aggregated secs:  observed={E}, future={H}")
 
 
+def parse_args():
+    parser = argparse.ArgumentParser(
+        description="Split one raw workload CSV into observed and future TFT input files."
+    )
+    parser.add_argument(
+        "-i",
+        "--input",
+        default="data/test.csv",
+        help="Path to the raw 7-column workload CSV.",
+    )
+    parser.add_argument(
+        "--observed-output",
+        default="data/observed.csv",
+        help="Path to write the observed-history CSV.",
+    )
+    parser.add_argument(
+        "--future-output",
+        default="data/future_cov.csv",
+        help="Path to write the future-covariates CSV.",
+    )
+    parser.add_argument(
+        "-E",
+        "--encoder-len",
+        type=int,
+        default=50,
+        help="Number of aggregated active seconds to keep for the observed window.",
+    )
+    parser.add_argument(
+        "-H",
+        "--horizon",
+        type=int,
+        default=20,
+        help="Number of aggregated active seconds to keep for the future window.",
+    )
+    return parser.parse_args()
+
+
 if __name__ == "__main__":
-    main()
+    args = parse_args()
+    main(
+        in_path=args.input,
+        out_observed=args.observed_output,
+        out_future=args.future_output,
+        E=args.encoder_len,
+        H=args.horizon,
+    )

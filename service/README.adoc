@@ -1,6 +1,8 @@
+= TFT Inference Service
 
-= Prediction service
+This directory provides a socket-based inference service for the Temporal Fusion Transformer (TFT) model.
 
+<<<<<<< HEAD
 The idea is that the service is always running, and the user can insert new data as an observation or query it for a prediction.
 
 == Installation
@@ -10,12 +12,21 @@ Install
 ----
 $ conda install numpy pandas pytz
 ----
+=======
+The service maintains:
+>>>>>>> 54379599687db9565e97c8aabe9c7103f769a14b
 
-== Usage
+* an observed history buffer of length `encoder_len`
+* a future covariate buffer of length `horizon`
 
-Run the server:
+Inference runs only after both buffers are available.
+
+== Environment setup
+
+Create the Conda environment used for TFT inference:
 
 ----
+<<<<<<< HEAD
 $ python server.py -s SOCKET_FILE [-m MODEL]
 $ python server.py -s /tmp/woz/sock.s -m rng
 
@@ -27,11 +38,42 @@ $ python server.py -m usetft
                    -k device=cuda
                    -k batch_size=64
                    -s ../tmp/sus/sock.s
+=======
+conda env create -f environment-deploy.yml
+conda activate fs-predict-tft
+>>>>>>> 54379599687db9565e97c8aabe9c7103f769a14b
 ----
 
-Run the client:
+This environment installs the runtime dependencies required by the inference service, including:
+
+* `pytorch-forecasting` from the pinned Git commit in `environment-deploy.yml`
+
+If the environment already exists and `environment-deploy.yml` has changed, update or recreate it before running inference.
+
+== Required model artifacts
+
+The TFT service requires both of these files:
+
+* `saved_models/tft.ckpt`
+* `saved_models/tft_dataset.pkl`
+
+The checkpoint stores the trained model weights. The dataset pickle stores the training `TimeSeriesDataSet`, which is needed at inference time to rebuild the same encoders, normalizers, and feature configuration used during training.
+
+== Inference workflow
+
+Inference is a two-step process:
+
+1. send observed event rows with `observe`
+2. send future covariate rows with `predict`
+
+`server.py` aggregates raw event-level rows into per-second features using `aggregate_raw_to_seconds()` from `preprocessing.py`. The TFT model is loaded through `predictor.py` and `models/usetft.py`.
+
+== Start the server
+
+Run the server from this directory:
 
 ----
+<<<<<<< HEAD
 $ python client.py -s SOCKET_FILE METHOD [-i INPUT_FILE] [-o OUTPUT_FILE]
 $ python client.py -s /tmp/woz/sock.s observe -i log.csv
 $ python client.py -s /tmp/woz/sock.s predict -i workload.csv -o predicted.csv
@@ -44,27 +86,43 @@ $ python client.py -s ../tmp/sus/sock.s predict -i data/future_cov.csv -o data/p
 The socket file provided with `-s FILE` must agree between the two programs, but can be any file location.
 
 If a socket file is not provided, the server will automatically create one, report it, and clean it up on exit.  The name will be based on the value of these environment variables in this order:
+=======
+python server.py \
+  -m usetft \
+  -k ckpt_path=./saved_models/tft.ckpt \
+  -k dataset_path=./saved_models/tft_dataset.pkl \
+  -k encoder_len=50 \
+  -k horizon=20 \
+  -k device=cuda \
+  -k batch_size=64 \
+  -s /tmp/fs_predict_tft.sock
+----
 
-. `XFER_TMP`
-. `TMPDIR`
-. `TMP`
-. Else `/tmp/$USER`
+Notes:
+>>>>>>> 54379599687db9565e97c8aabe9c7103f769a14b
 
+* `encoder_len` controls how many per-second history rows are required before prediction
+* `horizon` controls how many future seconds are forecast
+* `device` can be `cuda` or `cpu`
+* the same socket path must be used by the client
+
+<<<<<<< HEAD
 If a socket file is provided, the server will use that and not attempt to clean it up on exit.
 
 Kill the server with Ctrl-C.  In some cases (bugs), the server may hang and you will have to kill it from another shell.
+=======
+If `-s` is omitted, the server automatically creates a socket path using `XFER_TMP`, `TMPDIR`, `TMP`, or `/tmp/$USER/xfer-tmp`.
+>>>>>>> 54379599687db9565e97c8aabe9c7103f769a14b
 
-== Client command line
+== Client commands
 
-`-s FILE`::
-The socket file
+The client supports two methods:
 
-`-i FILE`::
-The input file
+* `observe`
+* `predict`
 
-`-o FILE`::
-The output file
 
+<<<<<<< HEAD
 == Methods
 
 `quit`::
@@ -89,7 +147,138 @@ Models are loaded by the name provided to the server command line via `-m` .  An
 == Examples
 
 See:
+=======
+General form:
+>>>>>>> 54379599687db9565e97c8aabe9c7103f769a14b
 
 ----
-$ ./insert-predict.sh
+python client.py -s SOCKET_PATH METHOD [-i INPUT_FILE] [-o OUTPUT_FILE]
 ----
+
+== Input file format
+
+=== Observed input
+
+Observed input must be a headerless CSV with 7 columns:
+
+----
+TIMESTAMP,DY,HR,MN,OP,BYTES,DURATION
+----
+
+This file is sent with:
+
+----
+python client.py -s /tmp/fs_predict_tft.sock observe -i data/observed.csv
+----
+
+=== Future covariate input
+
+Future input sent directly to `predict` is a headerless CSV with 6 raw covariate columns:
+
+----
+TIMESTAMP,DY,HR,MN,OP,BYTES
+----
+
+When `future_cov.csv` is produced by `make_obs_fut.py`, it is written with an extra trailing empty column:
+
+----
+TIMESTAMP,DY,HR,MN,OP,BYTES,duration_sum
+----
+
+The last column is intentionally left blank (`NaN`). It is a placeholder for the prediction target, because future rows do not have an observed `DURATION` yet. The TFT path later fills that target slot with predicted values.
+
+This file is sent with:
+
+----
+python client.py -s /tmp/fs_predict_tft.sock predict -i data/future_cov.csv -o data/predicted.csv
+----
+
+The prediction output is written as:
+
+----
+<timestamp>,<predicted_duration_sum>
+----
+
+== Creating observed and future inputs
+
+If you start from a single raw 7-column workload file, use:
+
+----
+python make_obs_fut.py \
+  -i data/test.csv \
+  --observed-output data/observed.csv \
+  --future-output data/future_cov.csv \
+  -E 50 \
+  -H 20
+----
+
+Command-line arguments:
+
+* `-i` / `--input`: raw 7-column workload CSV
+* `--observed-output`: output path for the observed-history CSV
+* `--future-output`: output path for the future-covariates CSV
+* `-E` / `--encoder-len`: number of aggregated active seconds for the observed window
+* `-H` / `--horizon`: number of aggregated active seconds for the future window
+
+If you keep the defaults, this script reads `data/test.csv` and writes:
+
+* `data/observed.csv`
+* `data/future_cov.csv`
+
+The default split uses:
+
+* `E=50` observed seconds
+* `H=20` future seconds
+
+These values should match the `encoder_len` and `horizon` passed to the server.
+
+
+`make_obs_fut.py` takes one raw workload file and splits it into two streams:
+
+* `observed.csv`: the history window used by the encoder
+* `future_cov.csv`: the future-known covariates used by the decoder
+
+
+Why the split is needed:
+
+* TFT predicts future target values from two different inputs: observed history and known future covariates
+* the observed side must include the past target signal (`DURATION`, which becomes per-second `duration_sum` after aggregation)
+* the future side cannot include the true target, because that is exactly what the model is trying to forecast
+* future rows still carry features that are assumed to be known at forecast time, such as timestamp-derived fields and planned/requested I/O size or operation type
+
+`make_obs_fut.py` chooses the split using aggregated per-second activity, not raw row count:
+
+* it first aggregates the raw file into active seconds
+* the first `E` active seconds become the observed window
+* the next `H` active seconds become the future horizon
+
+This matters because TFT is configured with `encoder_len=E` and `horizon=H`. The service needs `E` seconds of past context before it can forecast the next `H` seconds. Splitting by aggregated seconds keeps the input aligned with how the model was trained and how the server buffers data during live inference.
+
+== End-to-end example
+
+Start the server:
+
+----
+python server.py \
+  -m usetft \
+  -k ckpt_path=./saved_models/tft.ckpt \
+  -k dataset_path=./saved_models/tft_dataset.pkl \
+  -k encoder_len=50 \
+  -k horizon=20 \
+  -k device=cuda \
+  -k batch_size=64 \
+  -s /tmp/fs_predict_tft.sock
+----
+
+In a second shell, send observed history:
+
+----
+python client.py -s /tmp/fs_predict_tft.sock observe -i data/observed.csv
+----
+
+Then send future covariates and receive predictions:
+
+----
+python client.py -s /tmp/fs_predict_tft.sock predict -i data/future_cov.csv -o data/predicted.csv
+----
+
