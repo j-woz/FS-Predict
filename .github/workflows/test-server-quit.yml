@@ -15,7 +15,7 @@ jobs:
           python-version: "3.12"
 
       - name: Install dependencies
-        run: pip install pandas numpy
+        run: pip install pandas numpy pytz
 
       - name: Start server in background
         working-directory: service
