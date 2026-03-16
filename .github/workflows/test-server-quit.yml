@@ -1,0 +1,56 @@
+name: Test server start and quit
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test-server-quit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install pandas numpy
+
+      - name: Start server in background
+        working-directory: service
+        run: |
+          python server.py -m rng -s /tmp/xfer-test.s &
+          echo $! > /tmp/server.pid
+
+      - name: Wait for socket
+        run: |
+          for i in $(seq 1 15); do
+            [ -S /tmp/xfer-test.s ] && echo "Socket ready." && exit 0
+            echo "Waiting for socket... ($i)"
+            sleep 1
+          done
+          echo "ERROR: server socket did not appear" && exit 1
+
+      - name: Quit via client
+        working-directory: service
+        run: |
+          timeout 10s python client.py -s /tmp/xfer-test.s quit
+          code=$?
+          if [ $code -eq 124 ]; then
+            echo "ERROR: client timed out waiting for server response"
+            kill $(cat /tmp/server.pid) 2>/dev/null || true
+            exit 1
+          fi
+
+      - name: Wait for server to exit
+        run: |
+          pid=$(cat /tmp/server.pid)
+          timeout 10s wait $pid
+          code=$?
+          if [ $code -eq 124 ]; then
+            echo "ERROR: server did not exit after quit, killing it"
+            kill $pid 2>/dev/null || true
+            exit 1
+          fi
+          echo "Server exited with code $code"
