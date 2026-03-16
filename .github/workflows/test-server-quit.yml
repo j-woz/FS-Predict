@@ -55,5 +55,4 @@ jobs:
             kill $pid 2>/dev/null || true
             exit 1
           fi
-          wait $pid
-          echo "Server exited with code $?"
+          echo "Server exited."
