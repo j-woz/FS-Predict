@@ -13,7 +13,7 @@ class Predictor:
     def __init__(self, model_name, keyvalue):
         """
         If module import fails, sets self.model==None
-        settings: The list of command-line key=value pairs
+        keyvalue: The list of command-line "key=value" strings
         """
         self.log("initializing: model: '%s'" % model_name)
         # Select model implementation
@@ -25,16 +25,21 @@ class Predictor:
             self.model = None
             return
 
+        settings = self.scan_settings(keyvalue)
+        
+        # Initialize model (use the 'Model' class from the specified module)
+        self.model = module.Model(settings)
+
+    def scan_settings(self, keyvalue):
         settings = {}
+        if keyvalue is None: return settings
         for kv in keyvalue:
             tokens = kv.split("=")
             if len(tokens) != 2:
                 raise(Exception("bad keyvalue pair: '%s'" % kv))
             settings[tokens[0]] = tokens[1]
+        return settings
         
-        # Initialize model (use the 'Model' class from the specified module)
-        self.model = module.Model(settings)
-
     def insert(self, data):
         """ Insert small recent measurements (not used in Option A) """
         b = self.model.insert(data)

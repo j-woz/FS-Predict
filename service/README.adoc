@@ -41,12 +41,16 @@ $ python client.py -s ../tmp/sus/sock.s observe -i data/observed.csv
 $ python client.py -s ../tmp/sus/sock.s predict -i data/future_cov.csv -o data/predicted.csv
 ----
 
-The socket file provided with `-s FILE` must agree between the two programs, but can be any file location.  If a socket file is not provided, the server will automatically create one and report it based on the value of these environment variables in this order:
+The socket file provided with `-s FILE` must agree between the two programs, but can be any file location.
+
+If a socket file is not provided, the server will automatically create one, report it, and clean it up on exit.  The name will be based on the value of these environment variables in this order:
 
 . `XFER_TMP`
 . `TMPDIR`
 . `TMP`
 . Else `/tmp/$USER`
+
+If a socket file is provided, the server will use that and not attempt to clean it up on exit.
 
 Kill the server with Ctrl-C.  In some cases (bugs), the server may hang and you will have to kill it from another shell.
 

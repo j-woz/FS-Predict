@@ -16,7 +16,7 @@ and streams back predictions as:
 until EOF
 """
 
-import os, socket, sys, time
+import os, signal, socket, sys, time
 import numpy as np
 from utils import send, recv_line
 import pandas as pd
@@ -45,6 +45,7 @@ future_buf  = pd.DataFrame()   # per-second rows without duration_sum
 
 def main():
     global sock, predictor, settings, HISTORY_E, FUTURE_H
+    msg("server starting: PID %i" % os.getpid())
     args = parse_args()
     settings = parse_keyvals(args.keyvalue)
 
@@ -60,6 +61,7 @@ def main():
 
     sock = make_socket(args)
     if sock is None:
+        abort("could not make socket!")
         exit(1)
 
     code = run_server(args)
@@ -182,7 +184,7 @@ def run_server(args):
 
     while not cancelled:
         sock.listen(1)
-        msg("accept")
+        msg("accepting ...")
 
         connected = False
         while not cancelled and not connected:
@@ -195,6 +197,8 @@ def run_server(args):
                 abort("accept failed: " + str(e))
                 return 1
 
+        msg("client is connected.")
+            
         if cancelled:
             msg("cancelled accept loop...")
             break
@@ -215,6 +219,7 @@ def run_server(args):
 
 
 def setup_handlers():
+    """Setup both signal handlers and client service method handlers"""
     import signal
     signal.signal(signal.SIGINT, signal_handler)
     signal.signal(signal.SIGHUP, signal_handler)
@@ -226,9 +231,10 @@ def setup_handlers():
     }
 
 
-def signal_handler(unused_sig, unused_frame):
+def signal_handler(sig, unused_frame):
     global cancelled, sock
-    print("\nxfer-server: cancelled!\n")
+    name = signal.Signals(sig).name
+    print("\nxfer-server: cancelled: signal %i = %s\n" % (sig, name))
     if cancelled:
         print("\nxfer-server: closing socket!\n")
         sock.close()
@@ -532,9 +538,12 @@ def do_quit(conn, tokens):
 def shutdown(args, code):
     global sock, sockfile
     if sock is not None:
-        msg("closing socket")
+        msg("closing socket ...")
         sock.close()
     if args.socket is None and sockfile and os.path.exists(sockfile):
+        # We only remove the socket if we created it as a temp file,
+        # not if the user provided it.
+        msg("removing sock file ...")
         os.remove(sockfile)
     msg("shutdown.")
     exit(code)
