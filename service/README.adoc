@@ -13,32 +13,13 @@ Inference runs only after both buffers are available.
 
 == Installation
 
-Install
-
-----
-$ conda install numpy pandas pytz
-----
-
-== Environment setup
-
-Create the Conda environment used for TFT inference:
+Create the Conda environment used for TFT inference using the provided Conda YAML file:
 
 ----
 $ conda env create -f environment-deploy.yml
 $ conda activate fs-predict-tft
-
-$ python server.py -s SOCKET_FILE [-m MODEL]
-$ python server.py -s /tmp/woz/sock.s -m rng
-
-$ python server.py -m usetft
-                   -k ckpt_path=./saved_models/tft.ckpt
-                   -k dataset_path=./saved_models/tft_dataset.pkl
-                   -k encoder_len=50
-                   -k horizon=20
-                   -k device=cuda
-                   -k batch_size=64
-                   -s ../tmp/sus/sock.s
 ----
+
 
 This environment installs the runtime dependencies required by the inference service, including:
 
@@ -68,8 +49,23 @@ Inference is a two-step process:
 
 Run the server from this directory:
 
+The general form for running the server is:
+
+----
+$ python server.py -s SOCKET_FILE [-m MODEL] [-k KEY=VALUE]*
 ----
 
+Various models accept various `KEY`/`VALUE` pairs for configuration.
+
+Example with dummy model:
+
+----
+$ python server.py -s /tmp/woz/sock.s -m rng
+----
+
+Example with TFT model:
+
+----
 $ python server.py \
     -m usetft \
     -k ckpt_path=./saved_models/tft.ckpt \
@@ -78,19 +74,10 @@ $ python server.py \
     -k horizon=20 \
     -k device=cuda \
     -k batch_size=64 \
-    -s /tmp/fs_predict_tft.sock & 
-
-$ python client.py -s SOCKET_FILE METHOD [-i INPUT_FILE] [-o OUTPUT_FILE]
-$ python client.py -s /tmp/woz/sock.s observe -i log.csv
-$ python client.py -s /tmp/woz/sock.s predict -i workload.csv -o predicted.csv
-$ python client.py -s /tmp/woz/sock.s quit
-
-$ python client.py -s ../tmp/sus/sock.s observe -i data/observed.csv
-$ python client.py -s ../tmp/sus/sock.s predict -i data/future_cov.csv \
-                   -o data/predicted.csv
+    -s /tmp/fs_predict_tft.sock 
 ----
 
-The socket file provided with `-s FILE` must agree between the two programs, but can be any file location.
+The socket file provided with `-s FILE` must agree between the client/server programs, but can be any file location.
 
 If a socket file is not provided, the server will automatically create one, report it, and clean it up on exit.  The name will be based on the value of these environment variables in this order:
 
@@ -127,6 +114,14 @@ Insert observed input data into the service.  The output file is ignored.
 
 `predict`::
 Output predictions for the given input workload.
+
+=== Typical usage
+
+----
+$ python client.py -s ../tmp/sus/sock.s observe -i data/observed.csv
+$ python client.py -s ../tmp/sus/sock.s predict -i data/future_cov.csv \
+                                                -o data/predicted.csv
+----
 
 == Prediction
 
@@ -180,7 +175,7 @@ The last column is intentionally left blank (`NaN`). It is a placeholder for the
 This file is sent with:
 
 ----
-python client.py -s /tmp/fs_predict_tft.sock predict -i data/future_cov.csv -o data/predicted.csv
+$ python client.py -s /tmp/fs_predict_tft.sock predict -i data/future_cov.csv -o data/predicted.csv
 ----
 
 The prediction output is written as:
@@ -188,6 +183,8 @@ The prediction output is written as:
 ----
 <timestamp>,<predicted_duration_sum>
 ----
+
+where the line numbers match the original input data.
 
 == Creating observed and future inputs
 
