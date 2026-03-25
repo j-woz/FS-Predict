@@ -109,12 +109,15 @@ If `-s` is omitted, the server automatically creates a socket path using `XFER_T
 
 == Client commands
 
-The client supports two methods:
+General form:
 
-* `observe`
-* `predict`
+----
+$ python client.py -s SOCKET_PATH METHOD [-i INPUT_FILE] [-o OUTPUT_FILE]
+----
 
-== Methods
+=== Methods
+
+The `METHOD` may be:
 
 `quit`::
 Cleanly shutdown the server.
@@ -133,15 +136,14 @@ Output predictions for the given input workload.
 
 == Models
 
-Models are loaded by the name provided to the server command line via `-m` .  An example model is provided in module `rng` .
+Models are loaded by the name provided to the server command line via `-m` .  The current models are:
 
-== Examples
+`rng`::
+An example model to demonstrate the software framework.
 
-General form:
+`usetft`::
+The `TemporalFusionTransformer` model.
 
-----
-$ python client.py -s SOCKET_PATH METHOD [-i INPUT_FILE] [-o OUTPUT_FILE]
-----
 
 == Input file format
 
