@@ -4,6 +4,13 @@ This directory provides a socket-based inference service for the Temporal Fusion
 
 The idea is that the service is always running, and the user can insert new data as an observation or query it for a prediction.
 
+The service maintains:
+
+* an observed history buffer of length `encoder_len` (seconds)
+* a future covariate buffer of length `horizon` (seconds)
+
+Inference runs only after both buffers are available.
+
 == Installation
 
 Install
@@ -11,13 +18,6 @@ Install
 ----
 $ conda install numpy pandas pytz
 ----
-
-The service maintains:
-
-* an observed history buffer of length `encoder_len`
-* a future covariate buffer of length `horizon`
-
-Inference runs only after both buffers are available.
 
 == Environment setup
 
