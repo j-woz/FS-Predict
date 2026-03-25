@@ -1,79 +1,13 @@
+
 = FS-Predict
 
-This repository contains the FS-Predict inference service. The active TFT-based socket service lives under `service/`.
+There are 3 components to this effort:
 
-For detailed data format and preprocessing behavior, see `service/README.adoc`.
+`chirp`::
+Data collection: The Chirp scripts to collect training data from real filesystems.
 
-== Important Commands for TFT Inference Service
+`service`::
+Serves predictions based on Chirp script data and live use cases.
 
-Change into the service directory first:
-
-[source,bash]
-----
-cd service
-----
-
-=== 1. Create and activate the environment
-
-[source,bash]
-----
-conda env create -f environment-deploy.yml
-conda activate fs-predict-tft
-----
-
-=== 2. Prepare observed and future input files
-
-If you start from one raw workload file such as `data/test.csv`, split it into observed history and future covariates:
-
-[source,bash]
-----
-python make_obs_fut.py \
-  -i data/test.csv \
-  --observed-output data/observed.csv \
-  --future-output data/future_cov.csv \
-  -E 50 \
-  -H 20
-----
-
-=== 3. Start the TFT inference server
-
-[source,bash]
-----
-python server.py \
-  -m usetft \
-  -k ckpt_path=./saved_models/tft.ckpt \
-  -k dataset_path=./saved_models/tft_dataset.pkl \
-  -k encoder_len=50 \
-  -k horizon=20 \
-  -k device=cuda \
-  -k batch_size=64 \
-  -s /tmp/fs_predict_tft.sock
-----
-
-=== 4. Send observed history
-
-[source,bash]
-----
-python client.py -s /tmp/fs_predict_tft.sock observe -i data/observed.csv
-----
-
-=== 5. Send future covariates and save predictions
-
-[source,bash]
-----
-python client.py -s /tmp/fs_predict_tft.sock predict -i data/future_cov.csv -o data/predicted.csv
-----
-
-=== 6. Stop the service
-
-[source,bash]
-----
-python client.py -s /tmp/fs_predict_tft.sock quit
-----
-
-== Notes
-
-* `saved_models/tft.ckpt` is the trained TFT checkpoint.
-* `saved_models/tft_dataset.pkl` is not the raw dataset CSV. It is the serialized training `TimeSeriesDataSet` object used to restore the same encoders, normalizers, and feature configuration during inference.
-* During `observe` and `predict`, the server automatically runs preprocessing and aggregates raw event-level rows into per-second features before inference.
-* `encoder_len` and `horizon` in the server command should match the `-E` and `-H` values used when generating `observed.csv` and `future_cov.csv`.
+`mofka`::
+Connects the prediction service to a greater Diaspora workflows.
