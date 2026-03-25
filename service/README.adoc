@@ -93,7 +93,6 @@ $ python client.py -s ../tmp/sus/sock.s predict -i data/future_cov.csv \
 The socket file provided with `-s FILE` must agree between the two programs, but can be any file location.
 
 If a socket file is not provided, the server will automatically create one, report it, and clean it up on exit.  The name will be based on the value of these environment variables in this order:
-----
 
 Notes:
 
