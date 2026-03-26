@@ -3,7 +3,86 @@ import argparse
 import pandas as pd
 
 from config import program_settings
-from preprocessing import aggregate_raw_to_seconds
+
+
+RAW_COLUMNS = ["TIMESTAMP", "DY", "HR", "MN", "OP", "BYTES", "DURATION"]
+DEFAULT_CHUNK_SIZE = 200_000
+
+
+def _load_full_raw(in_path):
+    df_raw = pd.read_csv(in_path, header=None)
+    if df_raw.shape[1] != 7:
+        raise ValueError(f"Expected 7 columns in {in_path}, got {df_raw.shape[1]}")
+    df_raw.columns = RAW_COLUMNS
+    return df_raw
+
+
+def _extract_first_window_streaming(in_path, E, H, chunksize=DEFAULT_CHUNK_SIZE):
+    target_count = E + H
+    active_seconds = []
+    collected_chunks = []
+    previous_last_ts = None
+    last_obs_ts = None
+    future_secs = None
+    cutoff_ts = None
+
+    chunk_iter = pd.read_csv(
+        in_path,
+        header=None,
+        names=RAW_COLUMNS,
+        chunksize=chunksize,
+    )
+
+    for chunk in chunk_iter:
+        if chunk.shape[1] != 7:
+            raise ValueError(f"Expected 7 columns in {in_path}, got {chunk.shape[1]}")
+
+        chunk_ts = chunk["TIMESTAMP"].astype(int)
+
+        if previous_last_ts is not None and (chunk_ts < previous_last_ts).any():
+            return None, None, None, False
+
+        previous_last_ts = int(chunk_ts.iloc[-1])
+
+        unique_secs = chunk_ts.drop_duplicates().tolist()
+        if active_seconds and unique_secs and unique_secs[0] == active_seconds[-1]:
+            unique_secs = unique_secs[1:]
+        active_seconds.extend(unique_secs)
+
+        if cutoff_ts is None and len(active_seconds) >= target_count:
+            last_obs_ts = int(active_seconds[E - 1])
+            future_secs = active_seconds[E:target_count]
+            cutoff_ts = int(active_seconds[target_count - 1])
+
+        if cutoff_ts is None:
+            collected_chunks.append(chunk)
+            continue
+
+        collected_chunks.append(chunk.loc[chunk_ts <= cutoff_ts].copy())
+
+        if (chunk_ts > cutoff_ts).any():
+            break
+
+    if cutoff_ts is None or future_secs is None or last_obs_ts is None:
+        return None, None, None, True
+
+    df_raw = pd.concat(collected_chunks, ignore_index=True)
+    return df_raw, last_obs_ts, future_secs, True
+
+
+def _extract_first_window_full_scan(in_path, E, H):
+    df_raw = _load_full_raw(in_path)
+    sec_list = sorted(df_raw["TIMESTAMP"].astype(int).unique().tolist())
+
+    if len(sec_list) < (E + H):
+        raise RuntimeError(
+            f"Not enough aggregated seconds in {in_path}. "
+            f"Need at least E+H={E+H}, but got {len(sec_list)}."
+        )
+
+    last_obs_ts = sec_list[E - 1]
+    future_secs = sec_list[E : E + H]
+    return df_raw, last_obs_ts, future_secs
 
 
 def main(
@@ -13,40 +92,28 @@ def main(
     E=50,
     H=20,
 ):
-    # 1) Load raw (headerless) 7-col file
-    df_raw = pd.read_csv(in_path, header=None)
-    if df_raw.shape[1] != 7:
-        raise ValueError(f"Expected 7 columns in {in_path}, got {df_raw.shape[1]}")
+    # 1) Load only enough raw rows to cover the first valid E+H active seconds.
+    df_raw, last_obs_ts, future_secs, in_order = _extract_first_window_streaming(
+        in_path, E, H
+    )
 
-    df_raw.columns = ["TIMESTAMP", "DY", "HR", "MN", "OP", "BYTES", "DURATION"]
+    if not in_order:
+        print("Input timestamps are not sorted; falling back to full-file scan for correctness.")
+        df_raw, last_obs_ts, future_secs = _extract_first_window_full_scan(in_path, E, H)
 
-    # 2) Aggregate to per-second to find valid seconds with events
-    agg = aggregate_raw_to_seconds(df_raw, training=True)
-    if agg.empty:
-        raise RuntimeError("Aggregation produced empty dataframe. Check input file.")
-
-    # These are the seconds that have at least one event (because empty seconds are dropped)
-    sec_list = agg["TIMESTAMP_last"].astype(int).unique().tolist()
-    sec_list = sorted(sec_list)
-
-    if len(sec_list) < (E + H):
+    if df_raw is None or last_obs_ts is None or future_secs is None:
         raise RuntimeError(
             f"Not enough aggregated seconds in {in_path}. "
-            f"Need at least E+H={E+H}, but got {len(sec_list)}."
+            f"Need at least E+H={E+H}."
         )
 
-    # 3) Choose split point by aggregated seconds
-    # last observed second = E-th second in the aggregated timeline
-    last_obs_ts = sec_list[E - 1]
-
-    # future seconds = next H aggregated seconds after last_obs_ts
-    future_secs = sec_list[E : E + H]
+    # 2) Choose split point by aggregated seconds
     future_set = set(future_secs)
 
-    # 4) Build observed raw (<= last_obs_ts)
+    # 3) Build observed raw (<= last_obs_ts)
     df_obs = df_raw[df_raw["TIMESTAMP"].astype(int) <= int(last_obs_ts)].copy()
 
-    # 5) Build future raw: rows whose TIMESTAMP is in the future seconds set
+    # 4) Build future raw: rows whose TIMESTAMP is in the future seconds set
     # then drop DURATION for covariate-only stream
     df_fut = df_raw[df_raw["TIMESTAMP"].astype(int).isin(future_set)].copy()
     df_fut = df_fut.drop(columns=["DURATION"])
@@ -54,7 +121,7 @@ def main(
     # Add `duration_sum` column to future covariates with NaN values
     df_fut["duration_sum"] = float("nan")
 
-    # 6) Save headerless CSVs (client/server expects header=None format)
+    # 5) Save headerless CSVs (client/server expects header=None format)
     os.makedirs(os.path.dirname(out_observed), exist_ok=True)
 
     df_obs.to_csv(out_observed, index=False, header=False)
