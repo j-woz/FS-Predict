@@ -21,6 +21,7 @@ import numpy as np
 from utils import send, recv_line
 import pandas as pd
 import io
+from config import merge_keyvalue_settings, program_settings, to_keyval_list
 os.environ.setdefault("CUDA_VISIBLE_DEVICES", "0")
 from predictor import Predictor
 from preprocessing import aggregate_raw_to_seconds
@@ -47,7 +48,24 @@ def main():
     global sock, predictor, settings, HISTORY_E, FUTURE_H
     msg("server starting: PID %i" % os.getpid())
     args = parse_args()
-    settings = parse_keyvals(args.keyvalue)
+    try:
+        config = program_settings(args.settings, "server", required=bool(args.settings))
+        settings = merge_keyvalue_settings(
+            config,
+            cli_keyvals=args.keyvalue,
+            reserved_keys={"model", "socket"},
+        )
+    except (FileNotFoundError, ValueError) as e:
+        abort(str(e))
+        exit(1)
+
+    args.model = args.model or config.get("model")
+    args.socket = args.socket or config.get("socket")
+    args.keyvalue = to_keyval_list(settings)
+
+    if args.model is None:
+        abort("provide model with -m/--model or in settings.yaml under server.model")
+        exit(1)
 
     # allow overriding E/H from command line
     if "encoder_len" in settings:
@@ -85,25 +103,19 @@ def parse_args():
     import argparse
     parser = argparse.ArgumentParser(description="Run server")
     parser.add_argument(
+        "--settings",
+        help="Path to YAML settings file (defaults to ./settings.yaml if present)",
+    )
+    parser.add_argument(
         "-k", "--keyvalue",
         action="append",
         help="A key/value setting for the underlying model"
     )
-    parser.add_argument("-m", "--model", required=True, help="Model module to import (e.g. usetft)")
+    parser.add_argument("-m", "--model", help="Model module to import (e.g. usetft)")
     parser.add_argument("-s", "--socket", help="Local socket path")
     args = parser.parse_args()
     print(str(args))
     return args
-
-
-def parse_keyvals(keyvals):
-    result = {}
-    if keyvals:
-        for kv in keyvals:
-            if "=" in kv:
-                k, v = kv.split("=", 1)
-                result[k] = v
-    return result
 
 
 def make_socket(args):

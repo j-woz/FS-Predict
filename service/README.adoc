@@ -52,7 +52,7 @@ Run the server from this directory:
 The general form for running the server is:
 
 ----
-$ python server.py -s SOCKET_FILE [-m MODEL] [-k KEY=VALUE]*
+$ python server.py [--settings SETTINGS_FILE] [-s SOCKET_FILE] [-m MODEL] [-k KEY=VALUE]*
 ----
 
 Various models accept various `KEY`/`VALUE` pairs for configuration.
@@ -66,16 +66,26 @@ $ python server.py -s /tmp/woz/sock.s -m rng
 Example with TFT model:
 
 ----
+$ python server.py
+----
+
+Or, pass all values on the command line instead of using `settings.yaml`:
+
+----
 $ python server.py \
     -m usetft \
     -k ckpt_path=./saved_models/tft.ckpt \
     -k dataset_path=./saved_models/tft_dataset.pkl \
     -k encoder_len=50 \
     -k horizon=20 \
-    -k device=cuda \
+    -k device=cpu \
     -k batch_size=64 \
-    -s /tmp/fs_predict_tft.sock 
+    -s /tmp/fs_predict_cpu.sock
 ----
+
+Use `--settings SETTINGS_FILE` only when the YAML file is not the default `./settings.yaml`.
+
+
 
 The socket file provided with `-s FILE` must agree between the client/server programs, but can be any file location.
 
@@ -87,6 +97,7 @@ Notes:
 * `horizon` controls how many future seconds are forecast
 * `device` can be `cuda` or `cpu`
 * the same socket path must be used by the client
+* command-line flags override values loaded from YAML
 
 If a socket file is provided, the server will use that and not attempt to clean it up on exit.
 
@@ -99,8 +110,10 @@ If `-s` is omitted, the server automatically creates a socket path using `XFER_T
 General form:
 
 ----
-$ python client.py -s SOCKET_PATH METHOD [-i INPUT_FILE] [-o OUTPUT_FILE]
+$ python client.py [--settings SETTINGS_FILE] [-s SOCKET_PATH] METHOD [-i INPUT_FILE] [-o OUTPUT_FILE]
 ----
+
+If `settings.yaml` is present in the current directory, `--settings` is optional.
 
 === Methods
 
@@ -118,9 +131,15 @@ Output predictions for the given input workload.
 === Typical usage
 
 ----
-$ python client.py -s ../tmp/sus/sock.s observe -i data/observed.csv
-$ python client.py -s ../tmp/sus/sock.s predict -i data/future_cov.csv \
-                                                -o data/predicted.csv
+$ python client.py observe -i data/observed.csv
+$ python client.py predict -i data/future_cov.csv -o data/predicted.csv
+----
+
+If you want to override the socket path from `settings.yaml`, you can use:
+
+----
+$ python client.py -s /tmp/fs_predict_cpu.sock observe -i data/observed.csv
+$ python client.py -s /tmp/fs_predict_cpu.sock predict -i data/future_cov.csv -o data/predicted.csv
 ----
 
 == Prediction
@@ -153,7 +172,7 @@ TIMESTAMP,DY,HR,MN,OP,BYTES,DURATION
 This file is sent with:
 
 ----
-python client.py -s /tmp/fs_predict_tft.sock observe -i data/observed.csv
+python client.py observe -i data/observed.csv
 ----
 
 === Future covariate input
@@ -175,7 +194,7 @@ The last column is intentionally left blank (`NaN`). It is a placeholder for the
 This file is sent with:
 
 ----
-$ python client.py -s /tmp/fs_predict_tft.sock predict -i data/future_cov.csv -o data/predicted.csv
+$ python client.py predict -i data/future_cov.csv -o data/predicted.csv
 ----
 
 The prediction output is written as:
@@ -191,12 +210,18 @@ where the line numbers match the original input data.
 If you start from a single raw 7-column workload file, use:
 
 ----
+$ python make_obs_fut.py
+----
+
+Or, pass all values on the command line instead of using `settings.yaml`:
+
+----
 $ python make_obs_fut.py \
-  -i data/test.csv \
-  --observed-output data/observed.csv \
-  --future-output data/future_cov.csv \
-  -E 50 \
-  -H 20
+  -i data/other.csv \
+  --observed-output data/other_observed.csv \
+  --future-output data/other_future.csv \
+  -E 64 \
+  -H 16
 ----
 
 Command-line arguments:
@@ -206,6 +231,7 @@ Command-line arguments:
 * `--future-output`: output path for the future-covariates CSV
 * `-E` / `--encoder-len`: number of aggregated active seconds for the observed window
 * `-H` / `--horizon`: number of aggregated active seconds for the future window
+* `--settings`: optional YAML settings file; defaults to `./settings.yaml` if present
 
 If you keep the defaults, this script reads `data/test.csv` and writes:
 
@@ -246,26 +272,17 @@ This matters because TFT is configured with `encoder_len=E` and `horizon=H`. The
 Start the server:
 
 ----
-python server.py \
-  -m usetft \
-  -k ckpt_path=./saved_models/tft.ckpt \
-  -k dataset_path=./saved_models/tft_dataset.pkl \
-  -k encoder_len=50 \
-  -k horizon=20 \
-  -k device=cuda \
-  -k batch_size=64 \
-  -s /tmp/fs_predict_tft.sock
+python server.py
 ----
 
 In a second shell, send observed history:
 
 ----
-python client.py -s /tmp/fs_predict_tft.sock observe -i data/observed.csv
+python client.py observe -i data/observed.csv
 ----
 
 Then send future covariates and receive predictions:
 
 ----
-python client.py -s /tmp/fs_predict_tft.sock predict -i data/future_cov.csv -o data/predicted.csv
+python client.py predict -i data/future_cov.csv -o data/predicted.csv
 ----
-

@@ -5,11 +5,21 @@ XFER CLIENT MAIN (OBSERVE + PREDICT)
 import socket
 import os
 
+from config import program_settings
 from utils import send, recv_line, send_file
 
 
 def main():
     args = parse_args()
+    try:
+        config = program_settings(args.settings, "client", required=bool(args.settings))
+    except (FileNotFoundError, ValueError) as e:
+        abort(str(e))
+
+    args.socket = args.socket or config.get("socket")
+    args.input = args.input or config.get("input")
+    args.output = args.output or config.get("output")
+
     if args.socket is None:
         abort("provide the socket file!")
     sock = connect(args)
@@ -20,6 +30,10 @@ def main():
 def parse_args():
     import argparse
     parser = argparse.ArgumentParser(description="Query server")
+    parser.add_argument(
+        "--settings",
+        help="Path to YAML settings file (defaults to ./settings.yaml if present)",
+    )
     parser.add_argument("-s", "--socket", help="The local socket file")
     parser.add_argument("method", help="The query method to invoke")
     parser.add_argument("-i", "--input", help="The input query data to send")

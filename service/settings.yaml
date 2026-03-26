@@ -1,0 +1,18 @@
+socket: /tmp/fs_predict_tft.sock
+
+server:
+  model: usetft
+  keyvalues:
+    ckpt_path: ./saved_models/tft.ckpt
+    dataset_path: ./saved_models/tft_dataset.pkl
+    encoder_len: 50
+    horizon: 20
+    device: cuda
+    batch_size: 64
+
+make_obs_fut:
+  input: data/test.csv
+  observed_output: data/observed.csv
+  future_output: data/future_cov.csv
+  encoder_len: 50
+  horizon: 20

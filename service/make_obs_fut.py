@@ -2,6 +2,7 @@ import os
 import argparse
 import pandas as pd
 
+from config import program_settings
 from preprocessing import aggregate_raw_to_seconds
 
 
@@ -71,36 +72,53 @@ def parse_args():
         description="Split one raw workload CSV into observed and future TFT input files."
     )
     parser.add_argument(
+        "--settings",
+        help="Path to YAML settings file (defaults to ./settings.yaml if present)",
+    )
+    parser.add_argument(
         "-i",
         "--input",
-        default="data/test.csv",
         help="Path to the raw 7-column workload CSV.",
     )
     parser.add_argument(
         "--observed-output",
-        default="data/observed.csv",
         help="Path to write the observed-history CSV.",
     )
     parser.add_argument(
         "--future-output",
-        default="data/future_cov.csv",
         help="Path to write the future-covariates CSV.",
     )
     parser.add_argument(
         "-E",
         "--encoder-len",
         type=int,
-        default=50,
         help="Number of aggregated active seconds to keep for the observed window.",
     )
     parser.add_argument(
         "-H",
         "--horizon",
         type=int,
-        default=20,
         help="Number of aggregated active seconds to keep for the future window.",
     )
-    return parser.parse_args()
+    args = parser.parse_args()
+
+    try:
+        config = program_settings(args.settings, "make_obs_fut", required=bool(args.settings))
+    except (FileNotFoundError, ValueError) as e:
+        parser.error(str(e))
+
+    if args.input is None:
+        args.input = config.get("input", "data/test.csv")
+    if args.observed_output is None:
+        args.observed_output = config.get("observed_output", "data/observed.csv")
+    if args.future_output is None:
+        args.future_output = config.get("future_output", "data/future_cov.csv")
+    if args.encoder_len is None:
+        args.encoder_len = int(config.get("encoder_len", 50))
+    if args.horizon is None:
+        args.horizon = int(config.get("horizon", 20))
+
+    return args
 
 
 if __name__ == "__main__":
