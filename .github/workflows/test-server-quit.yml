@@ -16,7 +16,7 @@ jobs:
         with:
           activate-environment: fs-predict-tft
           environment-file: service/environment-deploy.yml
-          python-version: "3.12"
+          python-version: "3.11"
           auto-activate-base: false
 
       - name: Start server in background
