@@ -22,6 +22,7 @@ jobs:
       - name: Start server in background
         working-directory: service
         run: |
+          conda env list
           python server.py -m rng -s /tmp/xfer-test.s &
           echo $! > /tmp/server.pid
 
