@@ -37,12 +37,18 @@ jobs:
       - name: Wait for socket
         shell: bash -l {0}
         run: |
-          for i in $(seq 1 15); do
-            [ -S /tmp/xfer-test.s ] && echo "Socket ready." && exit 0
+          for i in $(seq 1 15)
+          do
+            if [ -S /tmp/xfer-test.s ]
+            then
+              echo "Socket ready."
+              exit 0
+            fi
             echo "Waiting for socket... ($i)"
             sleep 1
           done
-          echo "ERROR: server socket did not appear" && exit 1
+          echo "ERROR: server socket did not appear"
+          exit 1
 
       - name: Quit via client
         shell: bash -l {0}
@@ -51,12 +57,18 @@ jobs:
           conda activate fs-predict-tft
           echo CONDA_PREFIX $CONDA_PREFIX
           timeout 10s python client.py -s /tmp/xfer-test.s quit
-          code=$?
-          if [ $code -eq 124 ]; then
+          CODE=$?
+          if (( CODE == 124 ))
+          then
             echo "ERROR: client timed out waiting for server response"
             kill $(cat /tmp/server.pid) 2>/dev/null || true
             exit 1
+          elif (( CODE != 0 ))
+          then
+            echo "ERROR: Other error code: $CODE"
+            exit 1
           fi
+          echo "SUCCESS."
 
       - name: Wait for server to exit
         run: |
