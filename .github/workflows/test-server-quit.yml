@@ -15,7 +15,10 @@ jobs:
           python-version: "3.12"
 
       - name: Install dependencies
-        run: pip install pandas numpy pytz
+        run: |
+          pwd
+          conda env create -f environment-deploy.yml
+          conda activate fs-predict-tft
 
       - name: Start server in background
         working-directory: service
