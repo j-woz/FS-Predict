@@ -15,18 +15,27 @@ jobs:
         uses: conda-incubator/setup-miniconda@v3
         with:
           activate-environment: fs-predict-tft
-          environment-file: service/environment-deploy.yml
           python-version: "3.11"
           auto-activate-base: false
 
+      - name: Install environment
+        shell: bash -l {0}
+        run: |
+          conda activate fs-predict-tft
+          echo CONDA_PREFIX $CONDA_PREFIX
+          conda env update -f service/environment-deploy.yml
+
       - name: Start server in background
+        shell: bash -l {0}
         working-directory: service
         run: |
-          conda env list
+          conda activate fs-predict-tft
+          echo CONDA_PREFIX $CONDA_PREFIX
           python server.py -m rng -s /tmp/xfer-test.s &
           echo $! > /tmp/server.pid
 
       - name: Wait for socket
+        shell: bash -l {0}
         run: |
           for i in $(seq 1 15); do
             [ -S /tmp/xfer-test.s ] && echo "Socket ready." && exit 0
@@ -36,8 +45,11 @@ jobs:
           echo "ERROR: server socket did not appear" && exit 1
 
       - name: Quit via client
+        shell: bash -l {0}
         working-directory: service
         run: |
+          conda activate fs-predict-tft
+          echo CONDA_PREFIX $CONDA_PREFIX
           timeout 10s python client.py -s /tmp/xfer-test.s quit
           code=$?
           if [ $code -eq 124 ]; then
