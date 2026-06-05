@@ -8,17 +8,16 @@ jobs:
   test-server-quit:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      - uses: actions/setup-python@v5
+      - name: Setup Miniconda
+        uses: conda-incubator/setup-miniconda@v3
         with:
+          activate-environment: fs-predict-tft
+          environment-file: service/environment-deploy.yml
           python-version: "3.12"
-
-      - name: Install dependencies
-        run: |
-          pwd
-          conda env create -f environment-deploy.yml
-          conda activate fs-predict-tft
+          auto-activate-base: false
 
       - name: Start server in background
         working-directory: service
