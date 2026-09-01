@@ -2,7 +2,7 @@
 
 This directory provides a socket-based inference service for the Temporal Fusion Transformer (TFT) model.
 
-The idea is that the service is always running, and the user can insert new data as an observation or query it for a prediction.
+The idea is that the service is always running, and the user can post data for the model to observe or query it for a prediction.
 
 The service maintains:
 
