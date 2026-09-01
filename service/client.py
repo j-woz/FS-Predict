@@ -147,29 +147,37 @@ def do_predict(args, sock):
     # IMPORTANT: persistent buffer for recv_line()
     buf = []
 
+    # Collect first, write once: a failed predict must not leave a truncated
+    # or empty output file behind for the next reader to pick up.
+    predictions = []
+
+    while True:
+        pred_line = recv_line(sock, buf)
+
+        if pred_line is None:
+            abort("connection dropped before all predictions received")
+
+        line = pred_line.strip()
+
+        if line == "EOF":
+            msg("client: received server EOF, stopping")
+            break
+
+        if line.startswith("ERROR"):
+            abort(f"server error -> {line}")
+
+        # pred_line already includes '\n' in most implementations of recv_line()
+        predictions.append(pred_line)
+
+        msg(f"Received prediction: {line}")
+
+    if len(predictions) == 0:
+        abort("server returned no predictions")
+
     with open(args.output, "w") as fp_out:
-        while True:
-            pred_line = recv_line(sock, buf)
+        fp_out.writelines(predictions)
 
-            if pred_line is None:
-                abort("connection dropped before all predictions received")
-
-            line = pred_line.strip()
-
-            if line == "EOF":
-                msg("client: received server EOF, stopping")
-                break
-
-            if line.startswith("ERROR"):
-                msg(f"client: server error -> {line}")
-                continue
-
-            # pred_line already includes '\n' in most implementations of recv_line()
-            fp_out.write(pred_line)
-
-            msg(f"Received prediction: {line}")
-
-    msg(f"client: Wrote predictions to {args.output}")
+    msg(f"client: Wrote {len(predictions)} predictions to {args.output}")
     return True
 
 def do_quit(sock):
