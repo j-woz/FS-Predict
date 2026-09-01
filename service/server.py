@@ -2,8 +2,10 @@
 XFER SERVER (OBSERVE + PREDICT streaming for TFT)
 
 Commands:
-  - observe: stream raw rows with DURATION (7 cols) -> update history buffer (encoder)
-  - predict: stream raw rows without DURATION (6 cols) for future horizon -> update future buffer (decoder)
+  - observe: stream raw rows with DURATION (7 cols) ->
+             update history buffer (encoder)
+  - predict: stream raw rows without DURATION (6 cols)
+             for future horizon -> update future buffer (decoder)
   - quit: stop server
 
 Once:
@@ -104,14 +106,16 @@ def parse_args():
     parser = argparse.ArgumentParser(description="Run server")
     parser.add_argument(
         "--settings",
-        help="Path to YAML settings file (defaults to ./settings.yaml if present)",
+        help="Path to YAML settings file " +
+             "(defaults to ./settings.yaml if present)"
     )
     parser.add_argument(
         "-k", "--keyvalue",
         action="append",
         help="A key/value setting for the underlying model"
     )
-    parser.add_argument("-m", "--model", help="Model module to import (e.g. usetft)")
+    parser.add_argument("-m", "--model",
+                        help="Model module to import (e.g. usetft)")
     parser.add_argument("-s", "--socket", help="Local socket path")
     args = parser.parse_args()
     print(str(args))
@@ -139,7 +143,7 @@ def make_socket(args):
     sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
     try:
         sock.bind(sockfile)
-        msg(f"Socket bound successfully at {sockfile}") 
+        msg(f"Socket bound successfully at {sockfile}")
     except Exception as e:
         abort(f"could not open socket at '{sockfile}': {e}")
         sock = None
@@ -210,7 +214,7 @@ def run_server(args):
                 return 1
 
         msg("client is connected.")
-            
+
         if cancelled:
             msg("cancelled accept loop...")
             break
@@ -302,7 +306,7 @@ def _update_history(agg_obs: pd.DataFrame):
     hi = last_ts
 
     history_buf = _fill_missing_seconds(history_buf, lo, hi, training=True)
-    
+
 
 
 KNOWN_REALS = [
@@ -380,7 +384,7 @@ def _update_future(agg_fut: pd.DataFrame):
     # Fill missing seconds within the future horizon
     future_buf = _fill_missing_seconds(agg_fut, lo, hi, training=False)
 
-    
+
 
 
 
@@ -433,7 +437,7 @@ def _build_inference_frame() -> pd.DataFrame:
     combined = pd.concat([hist, fut], ignore_index=True)
     combined = combined.sort_values("TIMESTAMP_last").reset_index(drop=True)
 
-    
+
     return combined
 
 
