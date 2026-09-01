@@ -1,9 +1,13 @@
 
+"""
+This is currently UNUSED.
+"""
+
 import joblib
 import pandas
 import random
 from preprocessing import preprocess_workload
-class Model:
+class Model_Unused:
 
     """
     Loads a model via joblib
@@ -20,12 +24,12 @@ class Model:
         if "scaler_path" in settings:
             self.log("loading scaler: '%s'" % settings["scaler_path"])
             self.scaler = joblib.load(settings["scaler_path"])
-    def insert(self, data):
-        self.log("insert: " + str(data))
+    def observe(self, data):
+        self.log("observe: " + str(data))
         if len(data) == 0: return True
         tokens = data.split(",")
         if len(tokens) != 7:
-            self.log("insert: bad data: '%s'" % str(tokens))
+            self.log("observe: bad data: '%s'" % str(tokens))
             return False
         value = float(tokens[6])
         if value < self.min:

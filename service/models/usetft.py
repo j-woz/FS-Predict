@@ -13,6 +13,8 @@ from pytorch_forecasting.data.encoders import GroupNormalizer, NaNLabelEncoder
 from pytorch_forecasting.metrics.point import MAE, MAPE, RMSE, SMAPE
 from pytorch_forecasting.metrics.quantile import QuantileLoss
 
+from predictor import Predictor
+
 # torch.load defaults to weights_only=True since PyTorch 2.6, so every
 # non-tensor type in the checkpoint must be allowlisted. This is the closure
 # reached by the tft.ckpt pickle: the pandas training frame (plus its internal
@@ -50,7 +52,7 @@ if torch.cuda.is_available() and torch.cuda.get_device_capability(0) < (7, 0):
     torch.backends.cudnn.enabled = False
 
 
-class Model:
+class Model(Predictor):
     def log(self, m):
         print("UseTFT Model: " + str(m))
 
@@ -113,8 +115,8 @@ class Model:
             f"dataset(E={self.max_encoder_length}, H={self.max_prediction_length}), horizon_arg={self.horizon}"
         )
 
-    def insert(self, data):
-        self.log("insert(): not supported for TFT deployment (no-op).")
+    def observe(self, data):
+        self.log("observe(): not supported for TFT deployment (no-op).")
         return True
 
     @torch.no_grad()

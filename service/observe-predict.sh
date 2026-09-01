@@ -11,6 +11,6 @@ SOCK=$1
 
 set -x
 
-python client.py -s $SOCK insert  -i lambda.csv
+python client.py -s $SOCK observe -i lambda.csv
 python client.py -s $SOCK predict -i workload.csv -o predicted.csv
 cat predicted.csv

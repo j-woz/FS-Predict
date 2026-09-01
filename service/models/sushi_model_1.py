@@ -2,13 +2,14 @@
 """
 Class name sushil_model_1.Model
 Feel free to rename!
+This is currently UNUSED.
 """
 
 import random
 
 from retrain import retrain_mlp_model
 
-class Model:
+class Model_Unused:
 
     """
     """
@@ -22,14 +23,14 @@ class Model:
         self.min = 1000
         self.max = 0
 
-    def insert(self, data):
+    def observe(self, data):
         """ data: a DataFrame """
         # Retrain...
-        self.log("insert: " + str(data))
+        self.log("observe: " + str(data))
         if len(data) == 0: return True
         tokens = data.split(",")
         if len(tokens) != 7:
-            self.log("insert: bad data: '%s'" % str(tokens))
+            self.log("observe: bad data: '%s'" % str(tokens))
             return False
         value = float(tokens[6])
         if value < self.min:

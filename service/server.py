@@ -75,8 +75,8 @@ def main():
     if "horizon" in settings:
         FUTURE_H = int(settings["horizon"])
 
-    predictor = Predictor(args.model, args.keyvalue)
-    if predictor.model is None:
+    predictor = Predictor.create(args.model, args.keyvalue)
+    if predictor is None:
         exit(1)
 
     sock = make_socket(args)
@@ -450,7 +450,7 @@ def do_observe(conn, tokens):
     OBSERVE: client streams 7-col raw events (incl DURATION).
     Server aggregates to per-second (incl duration_sum) and updates history buffer.
     """
-    global cancelled
+    global cancelled, predictor
     msg("do_observe()...")
     send(conn, "OK\n")
 
@@ -473,6 +473,14 @@ def do_observe(conn, tokens):
 
     agg_obs = aggregate_raw_to_seconds(df_raw, training=True)
     _update_history(agg_obs)
+
+    # Let the model learn from the observation too (no-op for models that
+    # only use the frame handed to predict()).
+    if not predictor.observe(agg_obs):
+        msg("observe: model rejected the observation")
+        send(conn, "ERROR: model rejected the observation\n")
+        send(conn, "EOF\n")
+        return
 
     msg(f"observe: history_buf seconds={len(history_buf)} (need {HISTORY_E})")
     send(conn, "EOF\n")

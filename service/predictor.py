@@ -3,6 +3,9 @@ import numpy as np
 """
 PREDICTOR
 The plain math-level prediction interface
+
+Base class for the model implementations in models/*.py.
+Use Predictor.create() to load one by name.
 """
 
 class Predictor:
@@ -10,27 +13,28 @@ class Predictor:
     def log(self, m):
         print("predictor: " + m)
 
-    def __init__(self, model_name, keyvalue):
+    @classmethod
+    def create(cls, model_name, keyvalue):
         """
-        If module import fails, sets self.model==None
+        Import models/<model_name>.py and instantiate its Model.
+        Returns None if the import fails.
         keyvalue: The list of command-line "key=value" strings
         """
-        self.log("initializing: model: '%s'" % model_name)
-        # Select model implementation
+        print("predictor: initializing: model: '%s'" % model_name)
         import importlib
         try:
             module = importlib.import_module(model_name)
         except ImportError as e:
-            self.log("init failed: " + str(e))
-            self.model = None
-            return
+            print("predictor: init failed: " + str(e))
+            return None
 
-        settings = self.scan_settings(keyvalue)
-        
+        settings = cls.scan_settings(keyvalue)
+
         # Initialize model (use the 'Model' class from the specified module)
-        self.model = module.Model(settings)
+        return module.Model(settings)
 
-    def scan_settings(self, keyvalue):
+    @staticmethod
+    def scan_settings(keyvalue):
         settings = {}
         if keyvalue is None: return settings
         for kv in keyvalue:
@@ -39,22 +43,24 @@ class Predictor:
                 raise(Exception("bad keyvalue pair: '%s'" % kv))
             settings[tokens[0]] = tokens[1]
         return settings
-        
-    def insert(self, data):
-        """ Insert small recent measurements (not used in Option A) """
-        b = self.model.insert(data)
-        return b
+
+    def observe(self, data):
+        """ Feed recent observed measurements to the model """
+        raise NotImplementedError("%s does not implement observe()"
+                                  % type(self).__name__)
 
     def predict(self, raw):
         """ Fill in DURATION for given workload (prediction for TFT) """
         # Returns a tuple of success flag and predicted values
-        b, value = self.model.predict(raw)
-        return (b, value)
+        raise NotImplementedError("%s does not implement predict()"
+                                  % type(self).__name__)
 
     def save(self, filename):
         """ Save model checkpoint """
-        self.model.save(filename)
+        raise NotImplementedError("%s does not implement save()"
+                                  % type(self).__name__)
 
     def load(self, filename):
         """ Load model checkpoint """
-        self.model.load(filename)
+        raise NotImplementedError("%s does not implement load()"
+                                  % type(self).__name__)

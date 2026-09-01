@@ -1,0 +1,168 @@
+name: Test server observe and predict (rng)
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test-server-rng:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Miniconda
+        uses: conda-incubator/setup-miniconda@v3
+        with:
+          activate-environment: fs-predict-tft
+          python-version: "3.11"
+          auto-activate-base: false
+
+      - name: Install environment
+        shell: bash -l {0}
+        run: |
+          conda activate fs-predict-tft
+          echo CONDA_PREFIX=$CONDA_PREFIX
+          conda env update --quiet -f service/environment-deploy.yml
+
+      - name: Start server in background
+        shell: bash -l {0}
+        working-directory: service
+        run: |
+          conda activate fs-predict-tft
+          echo CONDA_PREFIX=$CONDA_PREFIX
+          python server.py -m rng -s /tmp/xfer-rng.s &
+          echo $! > /tmp/server.pid
+
+      - name: Wait for socket
+        shell: bash -l {0}
+        run: |
+          FOUND=0
+          for i in $(seq 1 15)
+          do
+            if [[ -S /tmp/xfer-rng.s ]]
+            then
+              echo "Socket found."
+              FOUND=1
+              break
+            fi
+            echo "Waiting for socket... ($i)"
+            sleep 1
+          done
+          if (( ! FOUND ))
+          then
+            echo "ERROR: server socket did not appear"
+            exit 1
+          fi
+          echo "SUCCESS."
+
+      - name: Observe via client
+        shell: bash -l {0}
+        working-directory: service
+        run: |
+          conda activate fs-predict-tft
+          timeout 30s python client.py -s /tmp/xfer-rng.s observe -i data/test-observed.csv
+          CODE=$?
+          if (( CODE == 124 ))
+          then
+            echo "ERROR: client timed out during observe"
+            kill $(cat /tmp/server.pid) 2>/dev/null || true
+            exit 1
+          elif (( CODE != 0 ))
+          then
+            echo "ERROR: observe failed with code: $CODE"
+            kill $(cat /tmp/server.pid) 2>/dev/null || true
+            exit 1
+          fi
+          echo "SUCCESS."
+
+      - name: Predict via client
+        shell: bash -l {0}
+        working-directory: service
+        run: |
+          conda activate fs-predict-tft
+          timeout 60s python client.py -s /tmp/xfer-rng.s predict \
+            -i data/test-future.csv -o /tmp/pred-rng.csv
+          CODE=$?
+          if (( CODE == 124 ))
+          then
+            echo "ERROR: client timed out during predict"
+            kill $(cat /tmp/server.pid) 2>/dev/null || true
+            exit 1
+          elif (( CODE != 0 ))
+          then
+            echo "ERROR: predict failed with code: $CODE"
+            kill $(cat /tmp/server.pid) 2>/dev/null || true
+            exit 1
+          fi
+          echo "SUCCESS."
+
+      - name: Check predictions
+        shell: bash -l {0}
+        run: |
+          if [[ ! -s /tmp/pred-rng.csv ]]
+          then
+            echo "ERROR: no prediction output produced"
+            kill $(cat /tmp/server.pid) 2>/dev/null || true
+            exit 1
+          fi
+          cat /tmp/pred-rng.csv
+          # One prediction per second of the horizon (settings.yaml: horizon 20)
+          LINES=$(wc -l < /tmp/pred-rng.csv)
+          if (( LINES != 20 ))
+          then
+            echo "ERROR: expected 20 predictions, got $LINES"
+            kill $(cat /tmp/server.pid) 2>/dev/null || true
+            exit 1
+          fi
+          # Every line must be "<integer timestamp>,<float>"
+          if grep -qvE '^[0-9]+,-?[0-9]+(\.[0-9]+)?([eE][-+]?[0-9]+)?$' /tmp/pred-rng.csv
+          then
+            echo "ERROR: malformed prediction line(s)"
+            kill $(cat /tmp/server.pid) 2>/dev/null || true
+            exit 1
+          fi
+          # Horizon starts the second after the last observed second
+          FIRST=$(head -1 /tmp/pred-rng.csv | cut -d, -f1)
+          if [[ $FIRST != 1730406204 ]]
+          then
+            echo "ERROR: expected first timestamp 1730406204, got $FIRST"
+            kill $(cat /tmp/server.pid) 2>/dev/null || true
+            exit 1
+          fi
+          echo "SUCCESS."
+
+      - name: Quit via client
+        shell: bash -l {0}
+        working-directory: service
+        run: |
+          conda activate fs-predict-tft
+          timeout 10s python client.py -s /tmp/xfer-rng.s quit
+          CODE=$?
+          if (( CODE == 124 ))
+          then
+            echo "ERROR: client timed out waiting for server response"
+            kill $(cat /tmp/server.pid) 2>/dev/null || true
+            exit 1
+          elif (( CODE != 0 ))
+          then
+            echo "ERROR: Other error code: $CODE"
+            exit 1
+          fi
+          echo "SUCCESS."
+
+      - name: Wait for server to exit
+        run: |
+          pid=$(cat /tmp/server.pid)
+          for i in $(seq 1 10)
+          do
+            kill -0 $pid 2>/dev/null || break
+            sleep 1
+          done
+          if kill -0 $pid 2>/dev/null
+          then
+            echo "ERROR: server did not exit after quit, killing it"
+            kill $pid 2>/dev/null || true
+            exit 1
+          fi
+          echo "Server exited."

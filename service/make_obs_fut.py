@@ -118,8 +118,10 @@ def main(
     df_fut = df_raw[df_raw["TIMESTAMP"].astype(int).isin(future_set)].copy()
     df_fut = df_fut.drop(columns=["DURATION"])
 
-    # Add `duration_sum` column to future covariates with NaN values
-    df_fut["duration_sum"] = float("nan")
+    # NOTE: do not append a duration_sum column here. The server parses predict
+    # input with 6 column names, so a 7th (all-NaN) field makes pandas take the
+    # timestamp as the index and shift every column left. The server fills in
+    # duration_sum=NaN itself in _build_inference_frame().
 
     # 5) Save headerless CSVs (client/server expects header=None format)
     os.makedirs(os.path.dirname(out_observed), exist_ok=True)
