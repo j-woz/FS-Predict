@@ -6,6 +6,48 @@ import torch
 
 from lightning.pytorch import Trainer
 from pytorch_forecasting import TimeSeriesDataSet, TemporalFusionTransformer
+import sklearn.preprocessing._data
+import torchmetrics.metric
+import torchmetrics.utilities.data
+from pytorch_forecasting.data.encoders import GroupNormalizer, NaNLabelEncoder
+from pytorch_forecasting.metrics.point import MAE, MAPE, RMSE, SMAPE
+from pytorch_forecasting.metrics.quantile import QuantileLoss
+
+# torch.load defaults to weights_only=True since PyTorch 2.6, so every
+# non-tensor type in the checkpoint must be allowlisted. This is the closure
+# reached by the tft.ckpt pickle: the pandas training frame (plus its internal
+# block/index and numpy dtype machinery), the fitted encoders/scalers, and the
+# loss metrics.
+torch.serialization.add_safe_globals([
+    slice,
+    np.ndarray,
+    np.dtype,
+    np.dtypes.Float64DType,
+    np.dtypes.Int64DType,
+    np.dtypes.ObjectDType,
+    np._core.multiarray._reconstruct,
+    np._core.multiarray.scalar,
+    pd.DataFrame,
+    pd.Index,
+    pd.core.indexes.base._new_Index,
+    pd.core.internals.managers.BlockManager,
+    pd._libs.internals._unpickle_block,
+    sklearn.preprocessing._data.StandardScaler,
+    torch.nn.modules.container.ModuleList,
+    torchmetrics.metric.jit_distributed_available,
+    torchmetrics.utilities.data.dim_zero_sum,
+    GroupNormalizer,
+    NaNLabelEncoder,
+    QuantileLoss,
+    MAE, MAPE, RMSE, SMAPE,
+])
+
+# cuDNN 9.x dropped Maxwell (sm_5x) support, so the TFT's LSTM encoder/decoder
+# dies with CUDNN_STATUS_EXECUTION_FAILED_CUDART on cards like the Quadro M4000
+# even though plain cuBLAS ops work. Disabling cuDNN falls back to native CUDA
+# kernels: slower, but correct, and still on the GPU.
+if torch.cuda.is_available() and torch.cuda.get_device_capability(0) < (7, 0):
+    torch.backends.cudnn.enabled = False
 
 
 class Model:
